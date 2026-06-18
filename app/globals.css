@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: #080f10;
+  color: #dce4e4;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.chart-grid {
+  background-image:
+    linear-gradient(rgba(0, 242, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 242, 255, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.dashboard-grid {
+  background-color: #080f10;
+  background-image:
+    linear-gradient(rgba(0, 242, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 242, 255, 0.035) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.realtime-chart-grid {
+  background-color: #10191a;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.medical-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(22, 27, 38, 0.86);
+  backdrop-filter: blur(14px);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(0, 242, 255, 0.28);
+  border-radius: 9999px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}

@@ -1,0 +1,29 @@
+{
+  "name": "nirwana-ai-monitoring-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint app lib next.config.mjs"
+  },
+  "dependencies": {
+    "jspdf": "latest",
+    "jspdf-autotable": "latest",
+    "lucide-react": "latest",
+    "mqtt": "latest",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "recharts": "latest"
+  },
+  "devDependencies": {
+    "autoprefixer": "latest",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "latest",
+    "postcss": "latest",
+    "tailwindcss": "3.4.17",
+    "typescript": "^6.0.3"
+  }
+}
