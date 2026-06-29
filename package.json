@@ -3,26 +3,32 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "backend": "node server/mqtt-bridge.mjs",
     "dev": "next dev",
+    "dev:all": "concurrently \"npm run backend\" \"npm run dev\"",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint app lib next.config.mjs"
+    "lint": "eslint app components lib next.config.mjs"
   },
   "dependencies": {
-    "jspdf": "latest",
-    "jspdf-autotable": "latest",
-    "lucide-react": "latest",
-    "mqtt": "latest",
-    "next": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "recharts": "latest"
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "lucide-react": "^1.20.0",
+    "mqtt": "^5.15.1",
+    "next": "^16.2.9",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
-    "autoprefixer": "latest",
+    "autoprefixer": "^10.5.0",
+    "concurrently": "^10.0.3",
     "eslint": "^9.39.1",
-    "eslint-config-next": "latest",
-    "postcss": "latest",
+    "eslint-config-next": "^16.2.9",
+    "postcss": "^8.5.15",
     "tailwindcss": "3.4.17",
     "typescript": "^6.0.3"
   }
