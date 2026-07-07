@@ -1,110 +1,241 @@
-import {
-  Activity,
-  Battery,
-  CheckCircle2,
-  Clock3,
-  Cpu,
-  Radio,
-  Shield,
-  ShieldAlert,
-  TriangleAlert,
-  UserRound,
-} from "lucide-react";
-import { formatMotion, formatRso2, shortDateTime, signalLabel, statusOf } from "@/lib/format";
-import { DEFAULT_DEVICE_ID, toDisplayValue } from "@/lib/telemetry";
-import { profile } from "@/lib/profile";
-import { SummaryCard } from "@/components/ui/SummaryCard";
+"use client";
 
-function TopStatusStrip({ current, connectionStatus }) {
+import { useMemo } from "react";
+import {
+  Asterisk,
+  BatteryFull,
+  CheckCircle2,
+  Cpu,
+  ShieldAlert,
+  ShieldCheck,
+  TriangleAlert,
+} from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { formatRso2, statusOf } from "@/lib/format";
+import { DEFAULT_DEVICE_ID } from "@/lib/telemetry";
+import { profile } from "@/lib/profile";
+
+const STATUS_STYLE = {
+  NORMAL: { color: "#34d399", solid: "bg-emerald-400 text-[#00363a]", ghost: "border-white/8 bg-[#192122]/50 text-[#849495]" },
+  WASPADA: { color: "#fed83a", solid: "bg-[#fed83a] text-[#3b2f00]", ghost: "border-[#fed83a]/30 bg-[#fed83a]/8 text-[#fed83a]" },
+  HIPOKSIA: { color: "#ff8f89", solid: "bg-[#ffb4ab] text-[#690005]", ghost: "border-[#ff8f89]/30 bg-[#ff8f89]/8 text-[#ff8f89]" },
+};
+
+const pct = (value) => (Number.isFinite(Number(value)) ? `${Math.round(Number(value))}%` : "-");
+
+function DeviceStrip({ current, connectionStatus }) {
   const online = connectionStatus === "connected";
 
   return (
-    <section className="flex flex-col gap-4 rounded-lg border border-white/10 border-l-4 border-l-[#e1fdff] bg-[#161b26] p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] md:flex-row md:items-center md:justify-between">
-      <div className="flex items-center gap-3">
-        <Cpu className="text-[#849495]" size={22} />
-        <span className="text-[#b9cacb]">ID Perangkat:</span>
-        <span className="font-display text-lg font-medium text-[#dce4e4]">{current.deviceId || DEFAULT_DEVICE_ID}</span>
-      </div>
-      <div className="flex items-center gap-2">
-        <span
-          className={`h-2.5 w-2.5 rounded-full ${
-            online ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" : "bg-[#ffb4ab]"
-          }`}
-        />
-        <span className={`font-display text-xs font-bold uppercase tracking-[0.08em] ${online ? "text-emerald-400" : "text-[#ffb4ab]"}`}>
-          {online ? "ONLINE" : connectionStatus}
-        </span>
-      </div>
-      <div className="flex items-center gap-3">
-        <Clock3 className="text-[#849495]" size={22} />
-        <span className="text-[#b9cacb]">Update Terakhir:</span>
-        <span className="font-display text-lg font-medium text-[#dce4e4]">{shortDateTime(current.timestamp)}</span>
+    <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#161b26] px-5 py-4 sm:px-6">
+      <span className="absolute inset-y-0 left-0 w-1 bg-[#00f2ff]" />
+      <div className="flex flex-col gap-4 pl-2 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-3">
+          <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#00f2ff]/10 text-[#00f2ff]">
+            <Cpu size={18} strokeWidth={1.5} />
+          </span>
+          <p className="flex flex-wrap items-center gap-x-2 text-sm">
+            <span className="text-[#849495]">ID Perangkat:</span>
+            <span className="font-display font-bold text-[#dce4e4]">{current.deviceId || DEFAULT_DEVICE_ID}</span>
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <span
+            className={`inline-flex items-center gap-2 font-display text-xs font-bold uppercase tracking-[0.08em] ${
+              online ? "text-emerald-400" : "text-[#ff8f89]"
+            }`}
+          >
+            <span className={`h-2 w-2 rounded-full ${online ? "animate-pulse bg-emerald-400" : "bg-[#ff8f89]"}`} />
+            {online ? "Online" : "Terputus"}
+          </span>
+
+          <span className="inline-flex items-center gap-2 text-sm">
+            <ShieldCheck size={16} strokeWidth={1.5} className="text-[#849495]" />
+            <span className="font-display font-bold uppercase tracking-[0.06em] text-[#849495]">Sinyal:</span>
+            <span className="font-display font-bold text-[#00f2ff]">{pct(current.sqi)}</span>
+          </span>
+
+          <span className="inline-flex items-center gap-2 text-sm">
+            <BatteryFull size={16} strokeWidth={1.5} className="text-emerald-400" />
+            <span className="font-display font-bold uppercase tracking-[0.06em] text-[#849495]">Baterai:</span>
+            <span className="font-display font-bold text-emerald-400">{pct(current.battery)}</span>
+          </span>
+        </div>
       </div>
     </section>
   );
 }
 
-function DashboardCards({ current }) {
-  const meta = statusOf(current.alertStatus);
-  const signal = signalLabel(current.sqi);
-  const motion = formatMotion(current.motion);
+function MiniWave({ data, color }) {
+  const gradientId = `dash-wave-${color.replace("#", "")}`;
 
   return (
-    <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-      <SummaryCard
-        title="rSO2 Ginjal"
-        value={formatRso2(current.rso2)}
-        suffix="%"
-        icon={TriangleAlert}
-        tone={current.alertStatus === "HIPOKSIA" ? "text-[#ffb4ab]" : "text-[#00f2ff]"}
-        active
-        danger={current.alertStatus === "HIPOKSIA"}
+    <div className="pointer-events-none absolute bottom-4 right-4 h-10 w-28 sm:w-36">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.28} />
+              <stop offset="100%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <Area
+            type="monotone"
+            dataKey="rso2"
+            stroke={color}
+            strokeWidth={2}
+            fill={`url(#${gradientId})`}
+            dot={false}
+            isAnimationActive={false}
+            style={{ filter: `drop-shadow(0 0 4px ${color}80)` }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function Rso2HourlyChart({ data, critical }) {
+  const color = critical ? "#ff8f89" : "#00f2ff";
+  const average = data.length
+    ? (data.reduce((sum, point) => sum + point.rso2, 0) / data.length).toFixed(1)
+    : "-";
+
+  return (
+    <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#161b26]">
+      <span
+        className="absolute inset-x-0 top-0 h-px"
+        style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }}
       />
-      <SummaryCard title="Kualitas Sinyal" value={toDisplayValue(current.sqi, "%")} icon={Shield} tone="text-[#76d6d5]">
-        <span className="mb-1 rounded border border-[#76d6d5]/25 bg-[#76d6d5]/10 px-2 py-0.5 text-xs font-bold text-[#76d6d5]">
-          {signal}
-        </span>
-      </SummaryCard>
-      <SummaryCard title="Status Gerak" value={motion} icon={UserRound} tone="text-[#dce4e4]" />
-      <SummaryCard title="Baterai" value={toDisplayValue(current.battery, "%")} icon={Battery} tone="text-emerald-400">
-        <span className="mb-2 h-2.5 w-2.5 rounded-full bg-emerald-400" />
-      </SummaryCard>
-      <SummaryCard title="Status Peringatan" value={meta.header} icon={ShieldAlert} tone={meta.tone} danger pulse={current.alertStatus !== "NORMAL"} />
+      <div className="flex flex-wrap items-start justify-between gap-4 p-5 sm:p-6">
+        <div>
+          <h3 className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-[#b9cacb]">
+            Grafik rSO&#8322; Ginjal &mdash; Rata-rata per Jam
+          </h3>
+          <p className="mt-1 text-xs text-[#849495]">Renal Tissue Oxygen Saturation (rata-rata tiap jam)</p>
+        </div>
+        <div className="text-right">
+          <p className="font-display text-[10px] font-bold uppercase tracking-[0.1em] text-[#849495]">Rata-rata</p>
+          <p className="font-display text-3xl font-bold leading-none" style={{ color, textShadow: `0 0 18px ${color}55` }}>
+            {average}
+            <span className="ml-1 text-base text-[#849495]">%</span>
+          </p>
+        </div>
+      </div>
+
+      <div className="chart-grid h-[260px] w-full sm:h-[300px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 12, right: 20, bottom: 12, left: 0 }}>
+            <defs>
+              <linearGradient id="rso2-hourly" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity={0.32} />
+                <stop offset="100%" stopColor={color} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
+            <XAxis
+              dataKey="label"
+              axisLine={{ stroke: "#3a494b" }}
+              tickLine={false}
+              tick={{ fill: "#849495", fontSize: 11 }}
+              minTickGap={20}
+            />
+            <YAxis
+              domain={[0, 100]}
+              ticks={[0, 25, 50, 75, 100]}
+              width={40}
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: "#dce4e4", fontSize: 11, fontWeight: 700 }}
+              tickFormatter={(value) => `${value}%`}
+            />
+            <ReferenceLine y={65} stroke="#3a494b" strokeDasharray="6 6" />
+            <Tooltip
+              contentStyle={{ background: "#151d1e", border: "1px solid #3a494b", borderRadius: "8px", color: "#dce4e4" }}
+              labelStyle={{ color: "#849495" }}
+              labelFormatter={(value) => `Pukul ${value}`}
+              formatter={(value) => {
+                const numericValue = Number(value);
+                return [Number.isFinite(numericValue) ? `${numericValue.toFixed(1)}%` : value, "rSO2 rata-rata"];
+              }}
+            />
+            <Area
+              type="monotone"
+              dataKey="rso2"
+              stroke={color}
+              strokeWidth={3}
+              fill="url(#rso2-hourly)"
+              dot={{ r: 3, fill: color, strokeWidth: 0 }}
+              isAnimationActive
+              animationDuration={600}
+              style={{ filter: `drop-shadow(0 0 6px ${color}80)` }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
     </section>
   );
 }
 
-function WarningPanel({ status }) {
+function StatCard({ label, icon: Icon, iconColor, accent, danger = false, children, wave, waveColor }) {
+  return (
+    <section
+      className={`relative min-h-[150px] overflow-hidden rounded-2xl border bg-[#161b26] p-5 ${
+        danger ? "border-[#ff8f89]/55 shadow-danger" : "border-white/10"
+      }`}
+    >
+      <span
+        className="absolute inset-x-0 top-0 h-px"
+        style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)`, opacity: danger ? 0.9 : 0.35 }}
+      />
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-[#b9cacb]">{label}</h3>
+        <Icon size={20} strokeWidth={1.5} color={iconColor} />
+      </div>
+      <div className="mt-6">{children}</div>
+      {wave ? <MiniWave data={wave} color={waveColor || accent} /> : null}
+    </section>
+  );
+}
+
+function AlertStatusPanel({ status }) {
   const items = [
-    ["NORMAL", "Normal", CheckCircle2, "text-slate-400"],
-    ["WASPADA", "Waspada", TriangleAlert, "text-yellow-400"],
-    ["HIPOKSIA", "Hipoksia", Activity, "text-[#690005]"],
+    ["NORMAL", "Normal", CheckCircle2],
+    ["WASPADA", "Waspada", TriangleAlert],
+    ["HIPOKSIA", "Hipoksia", Asterisk],
   ];
 
   return (
-    <section className="rounded-lg border border-white/10 bg-[#161b26] p-5">
-      <h3 className="border-b border-[#3a494b]/45 pb-3 font-display text-xs font-bold uppercase tracking-[0.12em] text-[#b9cacb]">
+    <section className="rounded-2xl border border-white/10 bg-[#161b26] p-5 lg:col-span-4">
+      <h3 className="border-b border-[#3a494b]/45 pb-3 font-display text-[11px] font-bold uppercase tracking-[0.14em] text-[#b9cacb]">
         Status Peringatan
       </h3>
       <div className="mt-5 flex flex-col gap-3">
-        {items.map(([key, label, Icon, iconTone]) => {
+        {items.map(([key, label, Icon]) => {
           const active = key === status;
-          const critical = active && key === "HIPOKSIA";
+          const style = STATUS_STYLE[key];
 
           return (
             <div
               key={key}
-              className={`relative flex items-center gap-3 rounded px-4 py-3 ${
-                critical
-                  ? "bg-[#ffb4ab] font-bold text-[#690005]"
-                  : active
-                    ? "border border-[#00f2ff]/25 bg-[#00f2ff]/10 text-[#e1fdff]"
-                    : "border border-white/5 bg-[#192122]/50 text-[#b9cacb] opacity-70"
+              className={`flex items-center gap-3 rounded-xl px-4 py-3 transition ${
+                active
+                  ? `${style.solid} border border-transparent font-bold ${key === "HIPOKSIA" ? "shadow-danger" : ""}`
+                  : `border ${style.ghost}`
               }`}
             >
-              <Icon className={critical ? iconTone : key === "WASPADA" ? "text-yellow-400" : "text-[#849495]"} size={22} />
-              <span>{label}</span>
-              {critical ? <span className="absolute right-0 top-0 h-full w-1 rounded-r bg-[#690005]" /> : null}
+              <Icon size={20} strokeWidth={active ? 2.2 : 1.8} className="shrink-0" />
+              <span className="font-display text-sm font-semibold">{label}</span>
             </div>
           );
         })}
@@ -113,68 +244,132 @@ function WarningPanel({ status }) {
   );
 }
 
-function DeviceInfoPanel({ current, connectionStatus, lastError }) {
+function DeviceInfoPanel({ connectionStatus }) {
+  const online = connectionStatus === "connected";
   const rows = [
     ["Subjek", profile.patientSubject],
     ["Mode", "Prototype"],
-    ["Koneksi", connectionStatus === "connected" ? "MQTT / WiFi" : "Terputus"],
+    ["Koneksi", online ? "BLE / WiFi" : "Terputus"],
   ];
 
   return (
-    <section className="rounded-lg border border-white/10 bg-[#161b26] p-5 lg:col-span-3">
-      <h3 className="border-b border-[#3a494b]/45 pb-3 font-display text-xs font-bold uppercase tracking-[0.12em] text-[#b9cacb]">
+    <section className="rounded-2xl border border-white/10 bg-[#161b26] p-5 sm:p-6 lg:col-span-8">
+      <h3 className="border-b border-[#3a494b]/45 pb-3 font-display text-[11px] font-bold uppercase tracking-[0.14em] text-[#b9cacb]">
         Informasi Perangkat
       </h3>
-      <ul className="mt-5 space-y-4">
+      <dl className="mt-5 space-y-4">
         {rows.map(([label, value]) => (
-          <li key={label} className="flex flex-col">
-            <span className="mb-1 text-xs text-[#849495]">{label}</span>
-            <span className="font-medium text-[#dce4e4]">{value}</span>
-          </li>
+          <div key={label}>
+            <dt className="text-[11px] uppercase tracking-[0.08em] text-[#849495]">{label}</dt>
+            <dd className="mt-0.5 break-all font-medium text-[#dce4e4]">{value}</dd>
+          </div>
         ))}
-        <li className="flex flex-col">
-          <span className="mb-1 text-xs text-[#849495]">TinyML</span>
-          <span className="w-max rounded border border-[#dce4e4]/30 bg-[#dce4e4]/10 px-2 py-0.5 text-xs font-bold text-[#dce4e4]">
-            Aktif
-          </span>
-        </li>
-        <li className="flex flex-col">
-          <span className="mb-1 text-xs text-[#849495]">Device ID</span>
-          <span className="font-medium text-[#dce4e4]">{current.deviceId || DEFAULT_DEVICE_ID}</span>
-        </li>
-      </ul>
-      {lastError ? (
-        <p className="mt-5 rounded border border-yellow-400/20 bg-yellow-400/10 px-3 py-2 text-sm text-yellow-100">
-          {lastError}
-        </p>
-      ) : null}
+        <div>
+          <dt className="text-[11px] uppercase tracking-[0.08em] text-[#849495]">TinyML</dt>
+          <dd className="mt-1.5">
+            <span className="inline-flex items-center rounded-md border border-white/10 bg-[#232b2c] px-2.5 py-1 text-xs font-bold text-[#dce4e4]">
+              Aktif
+            </span>
+          </dd>
+        </div>
+      </dl>
     </section>
   );
 }
 
-export function DashboardView({ current, connectionStatus, lastError, topic, telemetryApiUrl, onAddDemo }) {
+export function DashboardView({ current, connectionStatus, history = [] }) {
+  const critical = current.alertStatus === "HIPOKSIA";
+  const meta = statusOf(current.alertStatus);
+  const status = STATUS_STYLE[current.alertStatus] || STATUS_STYLE.NORMAL;
+  const rso2Color = critical ? "#ff8f89" : "#00f2ff";
+
+  const trend = useMemo(() => {
+    const source = history.filter((item) => Number.isFinite(Number(item?.rso2)));
+    if (source.length > 1) {
+      return source
+        .slice(0, 40)
+        .reverse()
+        .map((item, index) => ({ t: index, rso2: Number(item.rso2) }));
+    }
+    return Array.from({ length: 24 }, (_, index) => ({
+      t: index,
+      rso2: Number((66 + Math.sin(index * 0.5) * 6 + Math.sin(index * 0.19) * 3).toFixed(1)),
+    }));
+  }, [history]);
+
+  const hourlyTrend = useMemo(() => {
+    const buckets = new Map();
+
+    for (const item of history) {
+      const value = Number(item?.rso2);
+      if (!Number.isFinite(value)) continue;
+
+      const date = new Date(item?.timestamp);
+      if (Number.isNaN(date.getTime())) continue;
+
+      const bucketKey = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        date.getHours(),
+      ).getTime();
+
+      const entry = buckets.get(bucketKey) || { sum: 0, count: 0 };
+      entry.sum += value;
+      entry.count += 1;
+      buckets.set(bucketKey, entry);
+    }
+
+    const points = [...buckets.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([bucketKey, { sum, count }]) => ({
+        label: `${String(new Date(bucketKey).getHours()).padStart(2, "0")}:00`,
+        rso2: Number((sum / count).toFixed(1)),
+      }));
+
+    if (points.length >= 2) return points;
+
+    const now = new Date();
+    return Array.from({ length: 12 }, (_, index) => {
+      const hour = new Date(now.getTime() - (11 - index) * 3600000).getHours();
+      return {
+        label: `${String(hour).padStart(2, "0")}:00`,
+        rso2: Number((66 + Math.sin(index * 0.6) * 6 + Math.sin(index * 0.22) * 3).toFixed(1)),
+      };
+    });
+  }, [history]);
+
   return (
-    <section className="space-y-8">
-      <TopStatusStrip current={current} connectionStatus={connectionStatus} />
-      <DashboardCards current={current} />
+    <section className="space-y-6">
+      <DeviceStrip current={current} connectionStatus={connectionStatus} />
 
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-        <WarningPanel status={current.alertStatus} />
-        <DeviceInfoPanel current={current} connectionStatus={connectionStatus} lastError={lastError} />
-      </section>
-
-      <div className="flex flex-wrap items-center gap-3 pt-2">
-        <button
-          type="button"
-          data-testid="demo-data"
-          onClick={onAddDemo}
-          className="inline-flex items-center gap-2 rounded border border-[#00f2ff]/35 bg-[#00f2ff]/10 px-4 py-2 text-sm font-semibold text-[#00f2ff] transition hover:bg-[#00f2ff]/15"
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <StatCard
+          label="RSO2 Ginjal"
+          icon={TriangleAlert}
+          iconColor={critical ? "#ff8f89" : "#849495"}
+          accent={rso2Color}
+          wave={trend}
+          waveColor={rso2Color}
         >
-          <Radio size={16} />
-          Data Dummy
-        </button>
-        <span className="text-sm text-[#849495]">Topic: {topic}</span>
-        <span className="text-sm text-[#849495]">Backend: {telemetryApiUrl}</span>
+          <p className="font-display text-5xl font-bold leading-none" style={{ color: rso2Color, textShadow: `0 0 18px ${rso2Color}55` }}>
+            {formatRso2(current.rso2)}
+            <span className="ml-1 align-top text-base font-medium text-[#849495]">%</span>
+          </p>
+        </StatCard>
+
+        <StatCard label="Status Peringatan" icon={ShieldAlert} iconColor={status.color} accent={status.color} danger={critical}>
+          <p className="font-display text-3xl font-bold leading-none sm:text-4xl" style={{ color: status.color }}>
+            {meta.header}
+          </p>
+        </StatCard>
+      </div>
+
+      <Rso2HourlyChart data={hourlyTrend} critical={critical} />
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <AlertStatusPanel status={current.alertStatus} />
+        <DeviceInfoPanel connectionStatus={connectionStatus} />
       </div>
     </section>
   );

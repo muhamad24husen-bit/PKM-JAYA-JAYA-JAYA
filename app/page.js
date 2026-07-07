@@ -20,6 +20,8 @@ import { AlertView } from "@/components/views/AlertView";
 import { DeviceView } from "@/components/views/DeviceView";
 import { SettingsView } from "@/components/views/SettingsView";
 
+const SIDEBAR_STORAGE_KEY = "nirwana-ai-sidebar-collapsed";
+
 const dashboardFallback = {
   id: "reference-preview",
   timestamp: "2026-06-14T09:20:00+07:00",
@@ -71,6 +73,7 @@ export default function Home() {
   const [lastError, setLastError] = useState("");
   const [historyMessage, setHistoryMessage] = useState("");
   const [activeView, setActiveView] = useState("realtime");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [simulationEnabled, setSimulationEnabled] = useState(false);
   const demoIndex = useRef(0);
 
@@ -180,6 +183,17 @@ export default function Home() {
     return () => window.clearInterval(intervalId);
   }, [connectionStatus, simulationEnabled]);
 
+  useEffect(() => {
+    if (window.localStorage.getItem(SIDEBAR_STORAGE_KEY) !== "true") return undefined;
+
+    const timeoutId = window.setTimeout(() => setSidebarCollapsed(true), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
+
   const current = history[0];
   const displayCurrent = current || dashboardFallback;
   const chartData = useMemo(() => {
@@ -247,9 +261,18 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#080f10] text-[#dce4e4]">
-      <Sidebar activeView={activeView} onNavigate={setActiveView} />
+      <Sidebar
+        activeView={activeView}
+        onNavigate={setActiveView}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((collapsed) => !collapsed)}
+      />
 
-      <div className="min-h-screen lg:ml-[280px]">
+      <div
+        className={`min-h-screen transition-[margin] duration-300 ease-in-out ${
+          sidebarCollapsed ? "lg:ml-[76px]" : "lg:ml-[280px]"
+        }`}
+      >
         <MobileNavigation activeView={activeView} onNavigate={setActiveView} />
 
         {activeView === "realtime" ? (
@@ -296,6 +319,7 @@ export default function Home() {
                     topic={topic}
                     telemetryApiUrl={telemetryApiUrl}
                     onAddDemo={addDemoData}
+                    history={history}
                   />
                 )}
               </div>
