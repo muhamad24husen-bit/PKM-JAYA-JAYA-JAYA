@@ -2,6 +2,7 @@ import { Wifi, WifiOff } from "lucide-react";
 import { shortDateTime } from "@/lib/format";
 import { DEFAULT_DEVICE_ID, toDisplayValue } from "@/lib/telemetry";
 import { profile } from "@/lib/profile";
+import { Card } from "@/components/ui/Card";
 
 export function DeviceView({ current, connectionStatus, lastError, topic, telemetryApiUrl }) {
   const online = connectionStatus === "connected";
@@ -16,47 +17,41 @@ export function DeviceView({ current, connectionStatus, lastError, topic, teleme
 
   return (
     <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <section className="rounded-lg border border-white/10 bg-[#161b26] p-5 lg:col-span-2">
-        <h3 className="border-b border-[#3a494b]/45 pb-3 font-display text-xs font-bold uppercase tracking-[0.12em] text-[#b9cacb]">
-          Informasi Perangkat
-        </h3>
-        <dl className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <Card title="Informasi Perangkat" className="lg:col-span-2">
+        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {rows.map(([label, value]) => (
-            <div key={label} className="rounded bg-black/15 p-3">
-              <dt className="text-xs text-[#849495]">{label}</dt>
-              <dd className="mt-1 break-all font-medium text-[#dce4e4]">{value}</dd>
+            <div key={label} className="rounded bg-nirwana-surfaceMuted p-3">
+              <dt className="text-xs text-nirwana-muted">{label}</dt>
+              <dd className="mt-1 break-all font-medium text-nirwana-text">{value}</dd>
             </div>
           ))}
-          <div className="rounded bg-black/15 p-3">
-            <dt className="text-xs text-[#849495]">TinyML</dt>
-            <dd className="mt-1 w-max rounded border border-[#dce4e4]/30 bg-[#dce4e4]/10 px-2 py-0.5 text-xs font-bold text-[#dce4e4]">
+          <div className="rounded bg-nirwana-surfaceMuted p-3">
+            <dt className="text-xs text-nirwana-muted">TinyML</dt>
+            <dd className="mt-1 w-max rounded border border-nirwana-border bg-nirwana-surface px-2 py-0.5 text-xs font-semibold text-nirwana-text">
               Aktif
             </dd>
           </div>
         </dl>
-      </section>
+      </Card>
 
-      <section className="rounded-lg border border-white/10 bg-[#161b26] p-5">
-        <h3 className="border-b border-[#3a494b]/45 pb-3 font-display text-xs font-bold uppercase tracking-[0.12em] text-[#b9cacb]">
-          Status Koneksi
-        </h3>
-        <div className="mt-5 flex items-center gap-3">
-          <div className={`grid h-12 w-12 place-items-center rounded-full ${online ? "bg-emerald-500/10 text-emerald-400" : "bg-[#ffb4ab]/10 text-[#ffb4ab]"}`}>
+      <Card title="Status Koneksi">
+        <div className="flex items-center gap-3">
+          <div className={`grid h-12 w-12 place-items-center rounded-full ${online ? "bg-nirwana-normalSoft text-nirwana-normal" : "bg-nirwana-hipoksiaSoft text-nirwana-hipoksia"}`}>
             {online ? <Wifi size={24} /> : <WifiOff size={24} />}
           </div>
           <div>
-            <p className={`font-display text-lg font-bold ${online ? "text-emerald-400" : "text-[#ffb4ab]"}`}>
+            <p className={`text-lg font-semibold ${online ? "text-nirwana-normal" : "text-nirwana-hipoksia"}`}>
               {online ? "ONLINE" : connectionStatus}
             </p>
-            <p className="text-xs text-[#849495]">Update: {shortDateTime(current.timestamp)}</p>
+            <p className="text-xs text-nirwana-muted">Update: {shortDateTime(current.timestamp)}</p>
           </div>
         </div>
         {lastError ? (
-          <p className="mt-5 rounded border border-yellow-400/20 bg-yellow-400/10 px-3 py-2 text-sm text-yellow-100">
+          <p className="mt-5 rounded border border-nirwana-waspada/25 bg-nirwana-waspadaSoft px-3 py-2 text-sm text-nirwana-waspada">
             {lastError}
           </p>
         ) : null}
-      </section>
+      </Card>
     </section>
   );
 }

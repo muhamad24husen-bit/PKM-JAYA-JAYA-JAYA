@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { exportHistoryToPDF } from "@/lib/pdf";
 import {
   DEFAULT_DEVICE_ID,
@@ -8,7 +8,6 @@ import {
   DEFAULT_TOPIC,
   HISTORY_LIMIT,
   HISTORY_STORAGE_KEY,
-  createDemoTelemetry,
 } from "@/lib/telemetry";
 import { Sidebar } from "@/components/Sidebar";
 import { MobileNavigation } from "@/components/MobileNavigation";
@@ -70,12 +69,11 @@ export default function Home() {
   const [topic] = useState(process.env.NEXT_PUBLIC_MQTT_TOPIC || DEFAULT_TOPIC);
   const [connectionStatus, setConnectionStatus] = useState("disconnected");
   const [history, setHistory] = useState([]);
+  const [insight, setInsight] = useState(null);
   const [lastError, setLastError] = useState("");
   const [historyMessage, setHistoryMessage] = useState("");
   const [activeView, setActiveView] = useState("realtime");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [simulationEnabled, setSimulationEnabled] = useState(false);
-  const demoIndex = useRef(0);
 
   useEffect(() => {
     let timeoutId;
@@ -120,12 +118,38 @@ export default function Home() {
         }
       } catch {
         if (!cancelled) {
-          setLastError("Backend telemetry belum tersedia. Jalankan npm run backend atau gunakan simulasi.");
+          setLastError("Backend telemetry belum tersedia. Jalankan npm run backend.");
         }
       }
     }
 
     loadBackendHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [telemetryApiUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLatestInsight() {
+      try {
+        const response = await fetch(buildApiUrl(telemetryApiUrl, "/api/insight/latest"), {
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+
+        const latestInsight = await response.json();
+        if (!cancelled && latestInsight) {
+          setInsight(latestInsight);
+        }
+      } catch {
+        // Backend belum siap; AiInsightCard menampilkan status menunggu secara default.
+      }
+    }
+
+    loadLatestInsight();
 
     return () => {
       cancelled = true;
@@ -161,27 +185,23 @@ export default function Home() {
       window.localStorage.removeItem(HISTORY_STORAGE_KEY);
     });
 
+    stream.addEventListener("insight", (event) => {
+      try {
+        setInsight(JSON.parse(event.data));
+      } catch {
+        // Abaikan payload insight yang tidak valid, pertahankan insight terakhir.
+      }
+    });
+
     stream.onerror = () => {
       setConnectionStatus("error");
-      setLastError("Stream backend telemetry terputus. Jalankan npm run backend atau gunakan simulasi.");
+      setLastError("Stream backend telemetry terputus. Jalankan npm run backend.");
     };
 
     return () => {
       stream.close();
     };
   }, [telemetryApiUrl]);
-
-  useEffect(() => {
-    if (!simulationEnabled || connectionStatus === "connected") return undefined;
-
-    const intervalId = window.setInterval(() => {
-      const item = createDemoTelemetry(demoIndex.current);
-      demoIndex.current += 1;
-      setHistory((currentHistory) => [item, ...currentHistory].slice(0, HISTORY_LIMIT));
-    }, 1000);
-
-    return () => window.clearInterval(intervalId);
-  }, [connectionStatus, simulationEnabled]);
 
   useEffect(() => {
     if (window.localStorage.getItem(SIDEBAR_STORAGE_KEY) !== "true") return undefined;
@@ -226,13 +246,6 @@ export default function Home() {
     }));
   }, [history]);
 
-  function addDemoData() {
-    const item = createDemoTelemetry(demoIndex.current);
-    demoIndex.current += 1;
-    setHistory((currentHistory) => [item, ...currentHistory].slice(0, HISTORY_LIMIT));
-    setHistoryMessage("");
-  }
-
   async function clearHistory() {
     setHistory([]);
     setHistoryMessage("Riwayat data telah dihapus.");
@@ -260,7 +273,7 @@ export default function Home() {
   const realtimeCurrent = current || realtimeFallback;
 
   return (
-    <main className="min-h-screen bg-[#080f10] text-[#dce4e4]">
+    <main className="min-h-screen bg-nirwana-background text-nirwana-text">
       <Sidebar
         activeView={activeView}
         onNavigate={setActiveView}
@@ -270,7 +283,7 @@ export default function Home() {
 
       <div
         className={`min-h-screen transition-[margin] duration-300 ease-in-out ${
-          sidebarCollapsed ? "lg:ml-[76px]" : "lg:ml-[280px]"
+          sidebarCollapsed ? "lg:ml-[76px]" : "lg:ml-[260px]"
         }`}
       >
         <MobileNavigation activeView={activeView} onNavigate={setActiveView} />
@@ -283,13 +296,11 @@ export default function Home() {
             lastError={lastError}
             topic={topic}
             telemetryApiUrl={telemetryApiUrl}
-            simulationEnabled={simulationEnabled}
-            onToggleSimulation={() => setSimulationEnabled((enabled) => !enabled)}
           />
         ) : (
           <>
             <TopAppBar current={displayCurrent} />
-            <div className="dashboard-grid min-h-[calc(100vh-81px)] overflow-y-auto px-5 py-6 sm:px-8">
+            <div className="min-h-[calc(100vh-81px)] overflow-y-auto bg-nirwana-background px-5 py-6 sm:px-8">
               <div className="mx-auto max-w-[1240px]">
                 {activeView === "history" ? (
                   <HistoryPanel history={history} onExport={handleExport} onClear={clearHistory} message={historyMessage} />
@@ -304,21 +315,12 @@ export default function Home() {
                     telemetryApiUrl={telemetryApiUrl}
                   />
                 ) : activeView === "settings" ? (
-                  <SettingsView
-                    topic={topic}
-                    telemetryApiUrl={telemetryApiUrl}
-                    connectionStatus={connectionStatus}
-                    simulationEnabled={simulationEnabled}
-                    onToggleSimulation={() => setSimulationEnabled((enabled) => !enabled)}
-                  />
+                  <SettingsView topic={topic} telemetryApiUrl={telemetryApiUrl} />
                 ) : (
                   <DashboardView
                     current={displayCurrent}
                     connectionStatus={connectionStatus}
-                    lastError={lastError}
-                    topic={topic}
-                    telemetryApiUrl={telemetryApiUrl}
-                    onAddDemo={addDemoData}
+                    insight={insight}
                     history={history}
                   />
                 )}

@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import express from "express";
 import mqtt from "mqtt";
 import {
+  DEFAULT_DEVICE_ID,
   DEFAULT_MQTT_URL,
   DEFAULT_TOPIC,
   HISTORY_LIMIT,
@@ -24,6 +25,12 @@ const historyFile = process.env.HISTORY_FILE
   ? path.resolve(process.env.HISTORY_FILE)
   : path.join(__dirname, "data", "history.json");
 
+const nvidiaApiKey = process.env.NVIDIA_API_KEY || "";
+const nvidiaModel = process.env.NVIDIA_MODEL || "meta/llama-3.3-70b-instruct";
+const insightIntervalMs = Number(process.env.INSIGHT_INTERVAL_MS || 45000);
+const NVIDIA_CHAT_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
+const INSIGHT_HISTORY_WINDOW = 40;
+
 const app = express();
 const sseClients = new Set();
 
@@ -32,6 +39,13 @@ let lastError = "";
 let latestTelemetry = null;
 let history = [];
 let persistTimer = null;
+let latestInsight = nvidiaApiKey
+  ? null
+  : {
+      text: null,
+      generatedAt: null,
+      error: "AI Insight belum dikonfigurasi. Set NVIDIA_API_KEY di server/.env untuk mengaktifkan.",
+    };
 
 function loadHistory() {
   try {
@@ -135,6 +149,10 @@ app.get("/api/telemetry/history", (_req, res) => {
   res.json(history);
 });
 
+app.get("/api/insight/latest", (_req, res) => {
+  res.json(latestInsight);
+});
+
 app.delete("/api/telemetry/history", (_req, res) => {
   history = [];
   latestTelemetry = null;
@@ -155,6 +173,9 @@ app.get("/api/telemetry/stream", (req, res) => {
   if (latestTelemetry) {
     sendSse(res, "telemetry", latestTelemetry);
   }
+  if (latestInsight) {
+    sendSse(res, "insight", latestInsight);
+  }
 
   const heartbeat = setInterval(() => {
     sendSse(res, "heartbeat", { updatedAt: new Date().toISOString() });
@@ -165,6 +186,80 @@ app.get("/api/telemetry/stream", (req, res) => {
     sseClients.delete(res);
   });
 });
+
+function buildInsightPrompt() {
+  const recent = history.slice(0, INSIGHT_HISTORY_WINDOW);
+  const rso2Values = recent.map((item) => Number(item.rso2)).filter(Number.isFinite);
+  const average = rso2Values.length ? rso2Values.reduce((sum, value) => sum + value, 0) / rso2Values.length : null;
+
+  const lines = [
+    `Device: ${latestTelemetry?.deviceId || DEFAULT_DEVICE_ID}`,
+    `rSO2 saat ini: ${latestTelemetry?.rso2 ?? "-"}%`,
+    `Status alert saat ini: ${latestTelemetry?.alertStatus ?? "-"}`,
+    `Signal Quality Index saat ini: ${latestTelemetry?.sqi ?? "-"}%`,
+    `Motion: ${latestTelemetry?.motion ?? "-"}`,
+    `Battery: ${latestTelemetry?.battery ?? "-"}%`,
+    rso2Values.length > 1
+      ? `Tren dari ${rso2Values.length} pembacaan terakhir: rata-rata ${average.toFixed(1)}%, minimum ${Math.min(...rso2Values)}%, maksimum ${Math.max(...rso2Values)}%.`
+      : "Belum cukup histori untuk menghitung tren.",
+  ];
+
+  return lines.join("\n");
+}
+
+async function generateInsight() {
+  if (!nvidiaApiKey || !latestTelemetry) {
+    return;
+  }
+
+  try {
+    const response = await fetch(NVIDIA_CHAT_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${nvidiaApiKey}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        model: nvidiaModel,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Kamu adalah asisten analisis pada dashboard monitoring prototipe riset NIRWANA-AI yang mengukur estimasi rSO2 (saturasi oksigen jaringan ginjal) neonatus memakai sensor NIR eksperimental. Tulis satu hingga dua kalimat insight singkat berbahasa Indonesia, gaya netral seperti catatan observasi, berdasarkan HANYA data yang diberikan. Jangan memberi diagnosis atau saran medis, jangan mengarang data yang tidak diberikan, dan jangan pakai format markdown.",
+          },
+          { role: "user", content: buildInsightPrompt() },
+        ],
+        temperature: 0.4,
+        top_p: 1,
+        max_tokens: 150,
+        stream: false,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`NVIDIA API merespons status ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data?.choices?.[0]?.message?.content?.trim();
+
+    if (!text) {
+      throw new Error("NVIDIA API tidak mengembalikan teks.");
+    }
+
+    latestInsight = { text, generatedAt: new Date().toISOString(), error: "" };
+  } catch (error) {
+    console.warn(`Gagal menghasilkan AI insight: ${error.message}`);
+    latestInsight = {
+      text: latestInsight?.text || null,
+      generatedAt: latestInsight?.generatedAt || null,
+      error: `Gagal memperbarui AI insight: ${error.message}`,
+    };
+  }
+
+  broadcast("insight", latestInsight);
+}
 
 const mqttClient = mqtt.connect(mqttUrl, {
   clean: true,
@@ -222,6 +317,14 @@ mqttClient.on("message", (_topic, message) => {
 
 loadHistory();
 
+let insightTimer = null;
+if (nvidiaApiKey) {
+  generateInsight();
+  insightTimer = setInterval(generateInsight, insightIntervalMs);
+} else {
+  console.warn("NVIDIA_API_KEY belum diisi — fitur AI Insight dinonaktifkan.");
+}
+
 const server = app.listen(port, () => {
   console.log(`NIRWANA-AI MQTT bridge running on http://localhost:${port}`);
   console.log(`Subscribing to ${mqttUrl} topic ${topic}`);
@@ -229,6 +332,9 @@ const server = app.listen(port, () => {
 
 function shutdown() {
   flushHistory();
+  if (insightTimer) {
+    clearInterval(insightTimer);
+  }
   for (const client of sseClients) {
     client.end();
   }
