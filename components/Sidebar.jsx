@@ -32,9 +32,9 @@ export function Sidebar({ activeView, onNavigate, collapsed = false, onToggleCol
         <button
           type="button"
           onClick={onToggleCollapse}
-          aria-label={collapsed ? "Perluas sidebar" : "Ciutkan sidebar"}
+          aria-label={collapsed ? "Perluas sidebar" : "Kecilkan sidebar"}
           aria-expanded={!collapsed}
-          title={collapsed ? "Perluas" : "Ciutkan"}
+          title={collapsed ? "Perluas" : "Kecilkan"}
           className="grid h-9 w-9 place-items-center rounded-lg text-nirwana-muted transition hover:bg-nirwana-surfaceMuted hover:text-nirwana-text"
         >
           {collapsed ? <PanelLeftOpen size={20} strokeWidth={2} /> : <PanelLeftClose size={20} strokeWidth={2} />}

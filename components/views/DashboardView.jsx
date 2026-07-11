@@ -272,7 +272,7 @@ export function DashboardView({ current, connectionStatus, insight, history = []
       <DeviceStrip current={current} connectionStatus={connectionStatus} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <StatCard label="RSO2 Ginjal" icon={TriangleAlert} iconColor={critical ? "#dc2626" : "#6b7280"} danger={critical}>
+        <StatCard label="rSO2 Ginjal" icon={TriangleAlert} iconColor={critical ? "#dc2626" : "#6b7280"} danger={critical}>
           <p className="text-5xl font-semibold leading-none" style={{ color: rso2Color }}>
             {formatRso2(current.rso2)}
             <span className="ml-1 align-top text-base font-medium text-nirwana-muted">%</span>

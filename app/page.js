@@ -193,6 +193,9 @@ export default function Home() {
       }
     });
 
+    // Handler jika koneksi stream SSE terputus. Ini akan terjadi jika backend
+    // berhenti berjalan. Frontend akan menampilkan status error dan pesan
+    // yang menyarankan untuk menjalankan ulang backend.
     stream.onerror = () => {
       setConnectionStatus("error");
       setLastError("Stream backend telemetry terputus. Jalankan npm run backend.");
