@@ -9,6 +9,7 @@ import {
   HISTORY_LIMIT,
   HISTORY_STORAGE_KEY,
 } from "@/lib/telemetry";
+import { mergeRollupSample } from "@/lib/trend";
 import { Sidebar } from "@/components/Sidebar";
 import { MobileNavigation } from "@/components/MobileNavigation";
 import { TopAppBar } from "@/components/TopAppBar";
@@ -70,6 +71,7 @@ export default function Home() {
   const [connectionStatus, setConnectionStatus] = useState("disconnected");
   const [history, setHistory] = useState([]);
   const [insight, setInsight] = useState(null);
+  const [rollup, setRollup] = useState(null);
   const [lastError, setLastError] = useState("");
   const [historyMessage, setHistoryMessage] = useState("");
   const [activeView, setActiveView] = useState("realtime");
@@ -157,6 +159,32 @@ export default function Home() {
   }, [telemetryApiUrl]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function loadRollup() {
+      try {
+        const response = await fetch(buildApiUrl(telemetryApiUrl, "/api/telemetry/rollup"), {
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+
+        const payload = await response.json();
+        if (!cancelled && payload && Array.isArray(payload.buckets)) {
+          setRollup({ sessionStartedAt: payload.sessionStartedAt || null, buckets: payload.buckets });
+        }
+      } catch {
+        // Rollup belum tersedia; jendela panjang menampilkan keadaan kosong.
+      }
+    }
+
+    loadRollup();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [telemetryApiUrl]);
+
+  useEffect(() => {
     const stream = new EventSource(buildApiUrl(telemetryApiUrl, "/api/telemetry/stream"));
 
     stream.addEventListener("status", (event) => {
@@ -174,6 +202,7 @@ export default function Home() {
       try {
         const item = JSON.parse(event.data);
         setHistory((currentHistory) => mergeHistoryItems(currentHistory, [item]));
+        setRollup((currentRollup) => mergeRollupSample(currentRollup, item));
         setLastError("");
       } catch {
         setLastError("Data telemetry dari backend tidak valid dan diabaikan.");
@@ -182,6 +211,7 @@ export default function Home() {
 
     stream.addEventListener("history-clear", () => {
       setHistory([]);
+      setRollup({ sessionStartedAt: null, buckets: [] });
       window.localStorage.removeItem(HISTORY_STORAGE_KEY);
     });
 
@@ -322,6 +352,7 @@ export default function Home() {
                     connectionStatus={connectionStatus}
                     insight={insight}
                     history={history}
+                    rollup={rollup}
                   />
                 )}
               </div>
