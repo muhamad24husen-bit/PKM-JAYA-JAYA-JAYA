@@ -26,7 +26,7 @@ Dashboard monitoring realtime untuk **NIRWANA-AI** — purwarupa alat riset yang
 ## Fitur Utama
 
 - Koneksi realtime ke perangkat lewat **MQTT** (broker Mosquitto), diteruskan ke browser lewat **Server-Sent Events (SSE)**.
-- Dashboard ringkasan: nilai rSO₂ terkini, status peringatan (Normal / Waspada / Hipoksia), grafik rSO₂ rata-rata per jam.
+- Dashboard ringkasan: nilai rSO₂ terkini, status peringatan (Normal / Waspada / Hipoksia), grafik rSO₂ dengan **dropdown jendela waktu** (3 Menit live / 1 Jam / 6 Jam / 24 Jam / 72 Jam) plus garis **baseline** dari 10 menit pertama sesi.
 - Halaman **Monitoring Realtime**: grafik RED/IR raw signal dan rSO₂ secara langsung.
 - **Riwayat Data**: tabel (desktop) / kartu (mobile), tersimpan di `localStorage` dan cache backend, bisa **Export PDF** dan **Clear History**.
 - **AI Insight**: interpretasi singkat berbahasa Indonesia dari kondisi terkini, dihasilkan otomatis oleh LLM lewat **NVIDIA NIM API**.
@@ -45,6 +45,7 @@ ESP32 (sensor AS7263) --MQTT--> Mosquitto broker --MQTT--> Backend bridge (Expre
 ```
 
 - **`server/mqtt-bridge.mjs`** — subscribe ke topic MQTT, validasi & normalisasi payload, simpan riwayat (maks 500 data) ke `server/data/history.json`, broadcast ke frontend lewat SSE. Juga menghasilkan AI Insight secara periodik dari NVIDIA NIM API.
+- **`server/rollup.mjs`** — agregat rSO₂ rata-rata per menit (retensi 72 jam) ke `server/data/rollup.json`, disajikan lewat `GET /api/telemetry/rollup` untuk dropdown jendela waktu di Dashboard (jendela 1 Jam–72 Jam + baseline sesi).
 - **`lib/telemetry.shared.mjs`** — logic normalisasi telemetry yang dipakai bareng oleh backend & frontend.
 - **`app/page.js`** — client utama: konek ke SSE, routing antar 6 halaman via sidebar (state, bukan URL routing).
 
@@ -91,6 +92,7 @@ cp .env.example .env
 | `BACKEND_PORT`            | `4000`                       | Port backend Express.                                             |
 | `FRONTEND_ORIGIN`         | `http://localhost:3000`      | Origin yang diizinkan CORS (bisa dipisah koma, atau `*`).         |
 | `HISTORY_FILE`            | `server/data/history.json`   | Lokasi file cache riwayat (opsional).                             |
+| `ROLLUP_FILE`             | `server/data/rollup.json`    | Lokasi file rollup rSO₂ per menit untuk jendela waktu (opsional). |
 | `NVIDIA_API_KEY`          | *(kosong)*                   | API key dari build.nvidia.com. Kosongkan untuk menonaktifkan AI Insight. |
 | `NVIDIA_MODEL`            | `meta/llama-3.3-70b-instruct`| Model NVIDIA NIM yang dipakai untuk generate insight.             |
 | `INSIGHT_INTERVAL_MS`     | `45000`                      | Interval (ms) antar generate AI Insight.                          |
@@ -154,11 +156,15 @@ components/
 lib/
   telemetry.js          Re-export lib/telemetry.shared.mjs untuk dipakai di frontend
   telemetry.shared.mjs  Logic normalisasi telemetry (dipakai backend & frontend)
+  trend.js              Re-export lib/trend.shared.mjs untuk dipakai di frontend
+  trend.shared.mjs      Jendela waktu + agregasi tren rSO₂ (dipakai backend & frontend)
   pdf.js                Generate PDF riwayat data
   format.js             Helper format status/tanggal
   profile.js            Identitas pasien & klinisi (dari .env)
 server/
   mqtt-bridge.mjs       Backend Express: subscribe MQTT, REST API, SSE, AI Insight
+  rollup.mjs            Store rollup rSO₂ per menit (retensi 72 jam, persist JSON)
+tests/                  Unit test (node --test): agregasi tren & rollup store
 docs/                   Dokumen desain/spec pengembangan
 ```
 
