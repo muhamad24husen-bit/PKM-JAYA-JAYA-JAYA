@@ -5,6 +5,7 @@ import {
   MINUTE_MS,
   TREND_WINDOWS,
   DEFAULT_TREND_WINDOW,
+  buildTrendSeries,
   computeBaseline,
 } from "../lib/trend.shared.mjs";
 
@@ -44,4 +45,64 @@ test("computeBaseline null tanpa sesi atau tanpa bucket di jendela", () => {
     computeBaseline([minuteBucket(T0 + BASELINE_WINDOW_MS, 60, 60)], iso(T0), T0 + BASELINE_WINDOW_MS + 1),
     null,
   );
+});
+
+test("buildTrendSeries 3m: sampel mentah difilter, diurutkan, dirata-rata", () => {
+  const now = T0 + 10 * MINUTE_MS;
+  const history = [
+    { timestamp: iso(now - 30 * 1000), rso2: 70 },
+    { timestamp: iso(now - 60 * 1000), rso2: 68 },
+    { timestamp: iso(now - 200 * 1000), rso2: 60 }, // di luar 180 detik
+    { timestamp: "rusak", rso2: 65 },
+    { timestamp: iso(now - 10 * 1000), rso2: "bukan-angka" },
+  ];
+  const series = buildTrendSeries({ windowKey: "3m", history, rollup: null, now });
+  assert.deepEqual(series.points.map((p) => p.rso2), [68, 70]);
+  assert.ok(series.points[0].t < series.points[1].t);
+  assert.equal(series.average, 69);
+  assert.equal(series.windowDef.key, "3m");
+});
+
+test("buildTrendSeries 24h: tumbling bucket 30 menit dengan rata-rata berbobot", () => {
+  const now = T0 + 2 * 60 * MINUTE_MS;
+  const rollup = {
+    sessionStartedAt: iso(T0),
+    buckets: [
+      minuteBucket(T0, 60, 60),
+      minuteBucket(T0 + 10 * MINUTE_MS, 66, 30),
+      minuteBucket(T0 + 35 * MINUTE_MS, 70, 60),
+      minuteBucket(T0 + 40 * MINUTE_MS, 74, 20),
+    ],
+  };
+  const series = buildTrendSeries({ windowKey: "24h", history: [], rollup, now });
+  assert.equal(series.points.length, 2);
+  assert.equal(series.points[0].rso2, 62); // (60*60 + 66*30) / 90
+  assert.equal(series.points[1].rso2, 71); // (70*60 + 74*20) / 80
+  assert.equal(series.average, Number(((60 * 60 + 66 * 30 + 70 * 60 + 74 * 20) / 170).toFixed(1)));
+  assert.ok(series.baseline); // sesi mulai T0, sudah > 10 menit
+});
+
+test("buildTrendSeries 1h: moving average 5 menit digeser per menit", () => {
+  const now = T0 + 2 * MINUTE_MS;
+  const rollup = {
+    sessionStartedAt: iso(T0),
+    buckets: [minuteBucket(T0, 60, 60), minuteBucket(T0 + MINUTE_MS, 62, 60)],
+  };
+  const series = buildTrendSeries({ windowKey: "1h", history: [], rollup, now });
+  // Titik pada menit T0 (hanya bucket T0), T0+1 dan T0+2 (gabungan trailing 5 menit).
+  assert.deepEqual(series.points.map((p) => p.rso2), [60, 61, 61]);
+  assert.equal(series.baseline, null); // baru 2 menit — baseline belum terbentuk
+});
+
+test("buildTrendSeries: jendela kosong dan coverage parsial", () => {
+  const empty = buildTrendSeries({ windowKey: "72h", history: [], rollup: null, now: T0 });
+  assert.deepEqual(empty.points, []);
+  assert.equal(empty.average, null);
+  assert.equal(empty.coverageMs, 0);
+
+  const now = T0 + 2 * 60 * MINUTE_MS;
+  const rollup = { sessionStartedAt: iso(T0), buckets: [minuteBucket(T0, 60, 60), minuteBucket(T0 + 90 * MINUTE_MS, 64, 60)] };
+  const partial = buildTrendSeries({ windowKey: "24h", history: [], rollup, now });
+  assert.ok(partial.coverageMs < partial.windowMs);
+  assert.ok(partial.coverageMs >= 2 * 60 * MINUTE_MS - MINUTE_MS);
 });
