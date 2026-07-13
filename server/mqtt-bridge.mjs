@@ -12,6 +12,7 @@ import {
   HISTORY_LIMIT,
   parseTelemetryMessage,
 } from "../lib/telemetry.shared.mjs";
+import { createRollupStore } from "./rollup.mjs";
 
 dotenv.config();
 
@@ -24,6 +25,11 @@ const frontendOrigin = process.env.FRONTEND_ORIGIN || "http://localhost:3000";
 const historyFile = process.env.HISTORY_FILE
   ? path.resolve(process.env.HISTORY_FILE)
   : path.join(__dirname, "data", "history.json");
+const rollupFile = process.env.ROLLUP_FILE
+  ? path.resolve(process.env.ROLLUP_FILE)
+  : path.join(__dirname, "data", "rollup.json");
+
+const rollup = createRollupStore({ filePath: rollupFile });
 
 const nvidiaApiKey = process.env.NVIDIA_API_KEY || "";
 const nvidiaModel = process.env.NVIDIA_MODEL || "meta/llama-3.3-70b-instruct";
@@ -135,6 +141,7 @@ function addTelemetry(item) {
   history = [item, ...history.filter((entry) => entry.id !== item.id)].slice(0, HISTORY_LIMIT);
   broadcast("telemetry", item);
   persistHistory();
+  rollup.add(item);
 }
 
 app.get("/api/health", (_req, res) => {
@@ -149,6 +156,10 @@ app.get("/api/telemetry/history", (_req, res) => {
   res.json(history);
 });
 
+app.get("/api/telemetry/rollup", (_req, res) => {
+  res.json(rollup.snapshot());
+});
+
 app.get("/api/insight/latest", (_req, res) => {
   res.json(latestInsight);
 });
@@ -157,6 +168,7 @@ app.delete("/api/telemetry/history", (_req, res) => {
   history = [];
   latestTelemetry = null;
   flushHistory();
+  rollup.clear();
   broadcast("history-clear", { updatedAt: new Date().toISOString() });
   broadcastStatus();
   res.status(204).end();
@@ -316,6 +328,7 @@ mqttClient.on("message", (_topic, message) => {
 });
 
 loadHistory();
+rollup.load();
 
 let insightTimer = null;
 if (nvidiaApiKey) {
@@ -332,6 +345,7 @@ const server = app.listen(port, () => {
 
 function shutdown() {
   flushHistory();
+  rollup.flush();
   if (insightTimer) {
     clearInterval(insightTimer);
   }
