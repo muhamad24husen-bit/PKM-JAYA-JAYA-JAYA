@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   BatteryFull,
   CheckCircle2,
@@ -21,6 +21,12 @@ import {
 } from "recharts";
 import { formatRso2, statusOf } from "@/lib/format";
 import { DEFAULT_DEVICE_ID } from "@/lib/telemetry";
+import {
+  buildTrendSeries,
+  describeCoverage,
+  DEFAULT_TREND_WINDOW,
+  TREND_WINDOWS,
+} from "@/lib/trend";
 import { profile } from "@/lib/profile";
 import { Card } from "@/components/ui/Card";
 import { AiInsightCard } from "@/components/ui/AiInsightCard";
@@ -70,79 +76,123 @@ function DeviceStrip({ current, connectionStatus }) {
   );
 }
 
-function Rso2HourlyChart({ data, critical }) {
+function Rso2TrendChart({ history, rollup, critical }) {
   const color = critical ? "#dc2626" : "#0f766e";
-  const average = data.length
-    ? (data.reduce((sum, point) => sum + point.rso2, 0) / data.length).toFixed(1)
-    : "-";
+  const [windowKey, setWindowKey] = useState(DEFAULT_TREND_WINDOW);
+  const series = useMemo(
+    () => buildTrendSeries({ windowKey, history, rollup }),
+    [windowKey, history, rollup],
+  );
+  const def = series.windowDef;
+  const hasChart = series.points.length >= 2;
+  const showCoverage = hasChart && series.coverageMs < series.windowMs * 0.95;
+  const averageLabel = Number.isFinite(series.average) ? series.average.toFixed(1) : "-";
 
   return (
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h3 className="text-xs font-semibold uppercase tracking-wide text-nirwana-muted">
-            Grafik rSO&#8322; Ginjal &mdash; Rata-rata per Jam
+            Grafik rSO&#8322; Ginjal
           </h3>
-          <p className="mt-1 text-xs text-nirwana-muted">Renal Tissue Oxygen Saturation</p>
-        </div>
-        <div className="text-right">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-nirwana-muted">Rata-rata</p>
-          <p className="text-3xl font-semibold leading-none" style={{ color }}>
-            {average}
-            <span className="ml-1 text-base text-nirwana-muted">%</span>
+          <p className="mt-1 text-xs text-nirwana-muted">
+            {def.subLabel} &middot; {def.rangeLabel}
           </p>
+        </div>
+        <div className="flex flex-wrap items-start justify-end gap-4">
+          <select
+            value={windowKey}
+            onChange={(event) => setWindowKey(event.target.value)}
+            aria-label="Jendela waktu grafik"
+            className="rounded-lg border border-nirwana-border bg-white px-2.5 py-1.5 text-xs font-semibold text-nirwana-text focus:outline-none focus:ring-2 focus:ring-nirwana-accent/40"
+          >
+            {TREND_WINDOWS.map((trendWindow) => (
+              <option key={trendWindow.key} value={trendWindow.key}>
+                {trendWindow.label}
+              </option>
+            ))}
+          </select>
+          <div className="text-right">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-nirwana-muted">Rata-rata</p>
+            <p className="text-3xl font-semibold leading-none" style={{ color }}>
+              {averageLabel}
+              <span className="ml-1 text-base text-nirwana-muted">%</span>
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="mt-5 h-[240px] w-full sm:h-[280px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 12, right: 20, bottom: 12, left: 0 }}>
-            <defs>
-              <linearGradient id="rso2-hourly" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={color} stopOpacity={0.18} />
-                <stop offset="100%" stopColor={color} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid stroke="#e4e7eb" vertical={false} />
-            <XAxis
-              dataKey="label"
-              axisLine={{ stroke: "#e4e7eb" }}
-              tickLine={false}
-              tick={{ fill: "#6b7280", fontSize: 11 }}
-              minTickGap={20}
-            />
-            <YAxis
-              domain={[0, 100]}
-              ticks={[0, 25, 50, 75, 100]}
-              width={40}
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: "#14181b", fontSize: 11, fontWeight: 600 }}
-              tickFormatter={(value) => `${value}%`}
-            />
-            <ReferenceLine y={65} stroke="#e4e7eb" strokeDasharray="6 6" />
-            <Tooltip
-              contentStyle={{ background: "#ffffff", border: "1px solid #e4e7eb", borderRadius: "8px", color: "#14181b" }}
-              labelStyle={{ color: "#6b7280" }}
-              labelFormatter={(value) => `Pukul ${value}`}
-              formatter={(value) => {
-                const numericValue = Number(value);
-                return [Number.isFinite(numericValue) ? `${numericValue.toFixed(1)}%` : value, "rSO2 rata-rata"];
-              }}
-            />
-            <Area
-              type="monotone"
-              dataKey="rso2"
-              stroke={color}
-              strokeWidth={2.5}
-              fill="url(#rso2-hourly)"
-              dot={{ r: 3, fill: color, strokeWidth: 0 }}
-              isAnimationActive
-              animationDuration={500}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+      {hasChart ? (
+        <div className="mt-5 h-[240px] w-full sm:h-[280px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={series.points} margin={{ top: 12, right: 20, bottom: 12, left: 0 }}>
+              <defs>
+                <linearGradient id="rso2-trend" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={color} stopOpacity={0.18} />
+                  <stop offset="100%" stopColor={color} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="#e4e7eb" vertical={false} />
+              <XAxis
+                dataKey="label"
+                axisLine={{ stroke: "#e4e7eb" }}
+                tickLine={false}
+                tick={{ fill: "#6b7280", fontSize: 11 }}
+                minTickGap={20}
+              />
+              <YAxis
+                domain={[0, 100]}
+                ticks={[0, 25, 50, 75, 100]}
+                width={40}
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: "#14181b", fontSize: 11, fontWeight: 600 }}
+                tickFormatter={(value) => `${value}%`}
+              />
+              {series.baseline ? (
+                <ReferenceLine
+                  y={series.baseline.value}
+                  stroke="#9ca3af"
+                  strokeDasharray="6 6"
+                  label={{
+                    value: `Baseline ${series.baseline.value}%`,
+                    position: "insideTopRight",
+                    fill: "#6b7280",
+                    fontSize: 10,
+                  }}
+                />
+              ) : null}
+              <Tooltip
+                contentStyle={{ background: "#ffffff", border: "1px solid #e4e7eb", borderRadius: "8px", color: "#14181b" }}
+                labelStyle={{ color: "#6b7280" }}
+                labelFormatter={(value) => (def.key === "72h" ? value : `Pukul ${value}`)}
+                formatter={(value) => {
+                  const numericValue = Number(value);
+                  return [Number.isFinite(numericValue) ? `${numericValue.toFixed(1)}%` : value, "rSO2 rata-rata"];
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="rso2"
+                stroke={color}
+                strokeWidth={2.5}
+                fill="url(#rso2-trend)"
+                dot={{ r: 3, fill: color, strokeWidth: 0 }}
+                isAnimationActive
+                animationDuration={500}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <div className="mt-5 grid h-[240px] w-full place-items-center rounded-lg border border-dashed border-nirwana-border sm:h-[280px]">
+          <p className="text-sm text-nirwana-muted">Belum ada data untuk jendela ini.</p>
+        </div>
+      )}
+
+      {showCoverage ? (
+        <p className="mt-2 text-[11px] text-nirwana-muted">{describeCoverage(series.coverageMs, series.windowMs)}</p>
+      ) : null}
     </Card>
   );
 }
@@ -220,52 +270,10 @@ function DeviceInfoPanel({ connectionStatus }) {
   );
 }
 
-export function DashboardView({ current, connectionStatus, insight, history = [] }) {
+export function DashboardView({ current, connectionStatus, insight, history = [], rollup = null }) {
   const critical = current.alertStatus === "HIPOKSIA";
   const meta = statusOf(current.alertStatus);
   const rso2Color = critical ? "#dc2626" : "#0f766e";
-
-  const hourlyTrend = useMemo(() => {
-    const buckets = new Map();
-
-    for (const item of history) {
-      const value = Number(item?.rso2);
-      if (!Number.isFinite(value)) continue;
-
-      const date = new Date(item?.timestamp);
-      if (Number.isNaN(date.getTime())) continue;
-
-      const bucketKey = new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
-        date.getHours(),
-      ).getTime();
-
-      const entry = buckets.get(bucketKey) || { sum: 0, count: 0 };
-      entry.sum += value;
-      entry.count += 1;
-      buckets.set(bucketKey, entry);
-    }
-
-    const points = [...buckets.entries()]
-      .sort((a, b) => a[0] - b[0])
-      .map(([bucketKey, { sum, count }]) => ({
-        label: `${String(new Date(bucketKey).getHours()).padStart(2, "0")}:00`,
-        rso2: Number((sum / count).toFixed(1)),
-      }));
-
-    if (points.length >= 2) return points;
-
-    const now = new Date();
-    return Array.from({ length: 12 }, (_, index) => {
-      const hour = new Date(now.getTime() - (11 - index) * 3600000).getHours();
-      return {
-        label: `${String(hour).padStart(2, "0")}:00`,
-        rso2: Number((66 + Math.sin(index * 0.6) * 6 + Math.sin(index * 0.22) * 3).toFixed(1)),
-      };
-    });
-  }, [history]);
 
   return (
     <section className="space-y-5">
@@ -286,7 +294,7 @@ export function DashboardView({ current, connectionStatus, insight, history = []
 
       <AiInsightCard insight={insight} />
 
-      <Rso2HourlyChart data={hourlyTrend} critical={critical} />
+      <Rso2TrendChart history={history} rollup={rollup} critical={critical} />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
         <AlertStatusPanel status={current.alertStatus} />
