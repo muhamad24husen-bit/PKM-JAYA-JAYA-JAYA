@@ -8,7 +8,8 @@
     "dev:all": "concurrently \"npm run backend\" \"npm run dev\"",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint app components lib next.config.mjs"
+    "lint": "eslint app components lib next.config.mjs",
+    "test": "node --test"
   },
   "dependencies": {
     "cors": "^2.8.6",
