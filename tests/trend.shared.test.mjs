@@ -2,11 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   BASELINE_WINDOW_MS,
+  HOUR_MS,
   MINUTE_MS,
   TREND_WINDOWS,
   DEFAULT_TREND_WINDOW,
   buildTrendSeries,
   computeBaseline,
+  describeCoverage,
+  mergeRollupSample,
 } from "../lib/trend.shared.mjs";
 
 // 13 Jul 2026 08:00:00 waktu lokal — semua test memakai waktu lokal agar deterministik.
@@ -105,4 +108,29 @@ test("buildTrendSeries: jendela kosong dan coverage parsial", () => {
   const partial = buildTrendSeries({ windowKey: "24h", history: [], rollup, now });
   assert.ok(partial.coverageMs < partial.windowMs);
   assert.ok(partial.coverageMs >= 2 * 60 * MINUTE_MS - MINUTE_MS);
+});
+
+test("mergeRollupSample: null rollup menjadi rollup baru dengan sesi", () => {
+  const item = { timestamp: iso(T0 + 30 * 1000), rso2: 66 };
+  const merged = mergeRollupSample(null, item, T0 + 30 * 1000);
+  assert.equal(merged.sessionStartedAt, iso(T0 + 30 * 1000));
+  assert.deepEqual(merged.buckets, [{ t: iso(T0), avg: 66, count: 1 }]);
+});
+
+test("mergeRollupSample: bucket menit yang sama di-update berbobot", () => {
+  const start = { sessionStartedAt: iso(T0), buckets: [{ t: iso(T0), avg: 60, count: 2 }] };
+  const merged = mergeRollupSample(start, { timestamp: iso(T0 + 10 * 1000), rso2: 69 }, T0 + 10 * 1000);
+  assert.deepEqual(merged.buckets, [{ t: iso(T0), avg: 63, count: 3 }]); // (60*2 + 69) / 3
+  assert.deepEqual(start.buckets, [{ t: iso(T0), avg: 60, count: 2 }]); // input tidak dimutasi
+});
+
+test("mergeRollupSample: rso2 tidak numerik diabaikan, sesi tidak berubah", () => {
+  const start = { sessionStartedAt: iso(T0), buckets: [] };
+  const merged = mergeRollupSample(start, { timestamp: iso(T0), rso2: "x" }, T0);
+  assert.deepEqual(merged, start);
+});
+
+test("describeCoverage memakai satuan menit untuk jendela pendek dan jam untuk panjang", () => {
+  assert.equal(describeCoverage(42 * MINUTE_MS, HOUR_MS), "Data baru mencakup ~42 dari 60 menit.");
+  assert.equal(describeCoverage(2 * HOUR_MS, 24 * HOUR_MS), "Data baru mencakup ~2 dari 24 jam.");
 });
