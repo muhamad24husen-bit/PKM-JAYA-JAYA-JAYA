@@ -16,19 +16,19 @@
 ## 2. Backend — `server/simulator.mjs` (modul baru)
 
 ```js
-createSimulatorRunner({ publish, onPhaseChange = () => {}, backfillDelayMs = 15, intervalMs = 1000 })
+createSimulatorRunner({ publish, onUpdate = () => {}, backfillDelayMs = 15, intervalMs = 1000 })
 → { start({ backfillHours }), stop(), status() }
 ```
 
-- **`start({ backfillHours })`**: tolak bila sudah berjalan (return `{ error }`). Set `running=true`, `phase="backfill"`, `startedAt=ISO now`, `sent=0`. Jalankan loop backfill async: `deretBackfill(now, backfillHours)` → `buatSampel(ts, state)` → `publish({ ...payload, timestamp: iso(ts) })`, jeda `backfillDelayMs`; cek flag `cancelled` tiap iterasi. Selesai → `phase="live"` + panggil `onPhaseChange` (lihat §3) → `setInterval(intervalMs)`: `buatSampel(Date.now(), state)` → `publish(payload)` **tanpa** timestamp. `backfillHours = 0` langsung ke fase live.
+- **`start({ backfillHours })`**: tolak bila sudah berjalan (return `{ error }`). Set `running=true`, `phase="backfill"`, `startedAt=ISO now`, `sent=0`. Jalankan loop backfill async: `deretBackfill(now, backfillHours)` → `buatSampel(ts, state)` → `publish({ ...payload, timestamp: iso(ts) })`, jeda `backfillDelayMs`; cek flag `cancelled` tiap iterasi. Selesai → `phase="live"` + panggil `onUpdate` (lihat §3) → `setInterval(intervalMs)`: `buatSampel(Date.now(), state)` → `publish(payload)` **tanpa** timestamp. `backfillHours = 0` langsung ke fase live. `onUpdate(status())` dipanggil pada tiap transisi fase **dan tiap 60 pesan live** agar hitungan `sent` di UI tetap segar lewat SSE `status`.
 - **`stop()`**: idempoten. Set `cancelled`, clearInterval, `running=false`, `phase="idle"`. Return `status()`.
 - **`status()`**: `{ running, phase: "idle"|"backfill"|"live", startedAt, sent, backfillHours }` (saat idle: `startedAt=null`, `backfillHours=null`; `sent` = hitungan sesi terakhir).
 - State generator (`buatStateAwal`) dibuat per start — sesi backfill/episode hipoksia identik dengan CLI.
-- Opsi `onPhaseChange(status)` callback (dipakai bridge untuk broadcast; default no-op).
+- Opsi `onUpdate(status)` callback (dipakai bridge untuk broadcast; default no-op).
 
 ## 3. Wiring `server/mqtt-bridge.mjs`
 
-- `const simulator = createSimulatorRunner({ publish: (payload) => mqttClient.publish(topic, JSON.stringify(payload)), onPhaseChange: () => broadcastStatus() });`
+- `const simulator = createSimulatorRunner({ publish: (payload) => mqttClient.publish(topic, JSON.stringify(payload)), onUpdate: () => broadcastStatus() });`
   Publish ke topic yang sama → broker mengirim balik ke subscription bridge → seluruh jalur produksi (normalisasi, riwayat, rollup, SSE) tetap teruji.
 - `statusPayload()` + field **`simulation: simulator.status()`** → ikut event SSE `status` yang sudah ada. **Tidak ada event SSE baru.**
 - **`POST /api/simulate/start`** — body `{ backfillHours }`: wajib angka `0–72` (400 bila bukan); **409** `{ error: "Simulasi sudah berjalan." }` bila running; **409** `{ error: "Broker MQTT tidak terhubung." }` bila `brokerStatus !== "connected"`. Sukses → `202 { simulation }` + `broadcastStatus()`.
