@@ -13,8 +13,9 @@ import { formatMotion, formatRso2, statusOf } from "@/lib/format";
 import { DEFAULT_DEVICE_ID, toDisplayValue } from "@/lib/telemetry";
 import { profile } from "@/lib/profile";
 import { Card } from "@/components/ui/Card";
+import { SimulationBadge } from "@/components/ui/SimulationBadge";
 
-function RealtimeHeader({ current, connectionStatus }) {
+function RealtimeHeader({ current, connectionStatus, simulation }) {
   const online = connectionStatus === "connected";
 
   return (
@@ -25,6 +26,7 @@ function RealtimeHeader({ current, connectionStatus }) {
           <p className="mt-1 text-xs text-nirwana-muted">Pasien: {profile.patientCode} ({profile.patientName})</p>
         </div>
         <div className="flex flex-wrap items-center gap-4 sm:justify-end">
+          <SimulationBadge simulation={simulation} />
           <div className="sm:text-right">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-nirwana-muted">Device ID</p>
             <p className="mt-0.5 text-sm font-semibold text-nirwana-text">{current.deviceId || DEFAULT_DEVICE_ID}</p>
@@ -150,10 +152,10 @@ function WaveformCard({ title, wavelength, data, dataKey, color, currentValue, b
   );
 }
 
-export function RealtimeView({ current, connectionStatus, chartData, lastError, topic, telemetryApiUrl }) {
+export function RealtimeView({ current, connectionStatus, chartData, lastError, topic, telemetryApiUrl, simulation = null }) {
   return (
     <>
-      <RealtimeHeader current={current} connectionStatus={connectionStatus} />
+      <RealtimeHeader current={current} connectionStatus={connectionStatus} simulation={simulation} />
       <div className="min-h-[calc(100vh-78px)] bg-nirwana-background px-4 py-5 sm:px-6">
         <div className="mx-auto max-w-[1320px] space-y-4">
           <RealtimeMetrics current={current} />

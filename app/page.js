@@ -72,6 +72,7 @@ export default function Home() {
   const [history, setHistory] = useState([]);
   const [insight, setInsight] = useState(null);
   const [rollup, setRollup] = useState(null);
+  const [simulation, setSimulation] = useState(null);
   const [lastError, setLastError] = useState("");
   const [historyMessage, setHistoryMessage] = useState("");
   const [activeView, setActiveView] = useState("realtime");
@@ -192,6 +193,7 @@ export default function Home() {
         const payload = JSON.parse(event.data);
         setConnectionStatus(payload.brokerStatus || "disconnected");
         setLastError(payload.lastError || "");
+        setSimulation(payload.simulation ?? null);
       } catch {
         setConnectionStatus("error");
         setLastError("Status backend telemetry tidak valid.");
@@ -290,6 +292,37 @@ export default function Home() {
     }
   }
 
+  async function simulateStart(backfillHours) {
+    try {
+      const response = await fetch(buildApiUrl(telemetryApiUrl, "/api/simulate/start"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ backfillHours }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        return payload?.error || "Backend menolak permintaan simulasi.";
+      }
+      return "";
+    } catch {
+      return "Backend tidak dapat dihubungi.";
+    }
+  }
+
+  async function simulateStop() {
+    try {
+      const response = await fetch(buildApiUrl(telemetryApiUrl, "/api/simulate/stop"), {
+        method: "POST",
+      });
+      if (!response.ok) {
+        return "Backend menolak permintaan berhenti.";
+      }
+      return "";
+    } catch {
+      return "Backend tidak dapat dihubungi.";
+    }
+  }
+
   function handleExport() {
     if (!history.length) {
       setHistoryMessage("Data riwayat masih kosong");
@@ -326,10 +359,11 @@ export default function Home() {
             lastError={lastError}
             topic={topic}
             telemetryApiUrl={telemetryApiUrl}
+            simulation={simulation}
           />
         ) : (
           <>
-            <TopAppBar current={displayCurrent} />
+            <TopAppBar current={displayCurrent} simulation={simulation} />
             <div className="min-h-[calc(100vh-81px)] overflow-y-auto bg-nirwana-background px-5 py-6 sm:px-8">
               <div className="mx-auto max-w-[1240px]">
                 {activeView === "history" ? (
@@ -345,7 +379,13 @@ export default function Home() {
                     telemetryApiUrl={telemetryApiUrl}
                   />
                 ) : activeView === "settings" ? (
-                  <SettingsView topic={topic} telemetryApiUrl={telemetryApiUrl} />
+                  <SettingsView
+                    topic={topic}
+                    telemetryApiUrl={telemetryApiUrl}
+                    simulation={simulation}
+                    onSimulateStart={simulateStart}
+                    onSimulateStop={simulateStop}
+                  />
                 ) : (
                   <DashboardView
                     current={displayCurrent}

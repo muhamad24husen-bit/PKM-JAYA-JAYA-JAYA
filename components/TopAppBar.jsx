@@ -1,8 +1,9 @@
 import { Baby, Bell, CircleUserRound } from "lucide-react";
 import { statusOf } from "@/lib/format";
 import { profile } from "@/lib/profile";
+import { SimulationBadge } from "@/components/ui/SimulationBadge";
 
-export function TopAppBar({ current }) {
+export function TopAppBar({ current, simulation = null }) {
   const meta = statusOf(current.alertStatus);
 
   return (
@@ -21,6 +22,7 @@ export function TopAppBar({ current }) {
         </div>
 
         <div className="flex items-center justify-between gap-5 lg:justify-end">
+          <SimulationBadge simulation={simulation} />
           <div className="text-left lg:text-right">
             <p className="font-medium text-nirwana-text">ID: {profile.monitorId}</p>
             <p className="mt-1 flex items-center gap-1.5 text-sm text-nirwana-muted lg:justify-end">
