@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "backend": "node server/mqtt-bridge.mjs",
+    "simulate": "node scripts/simulate.mjs",
     "dev": "next dev",
     "dev:all": "concurrently \"npm run backend\" \"npm run dev\"",
     "build": "next build",
