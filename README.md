@@ -154,6 +154,8 @@ npm run simulate -- --interval 500  # live 2 Hz
 
 Pola datanya realistis: gelombang halus di kisaran 62–74%, satu episode hipoksia terjadwal di tengah backfill, dan dip acak sesekali ke rentang Waspada/Hipoksia saat live. Broker/topic mengikuti `MQTT_URL` / `MQTT_TOPIC` di `.env`. Hentikan dengan `Ctrl+C`. Untuk mengosongkan kembali dashboard, pakai tombol **Clear History** di halaman Riwayat Data.
 
+Simulator juga bisa dijalankan **dari UI**: buka **Pengaturan → Simulasi Data**, pilih isi riwayat (Tanpa / 2 jam / 26 jam), lalu klik **Mulai Simulasi**. Selama simulasi aktif, badge **SIMULASI** tampil di header semua halaman sebagai penanda bahwa data yang mengalir bersifat sintetis. Bila perangkat asli ikut publish pada saat yang sama, datanya akan berbaur.
+
 Alternatif manual — publish payload sendiri dengan `mosquitto_pub`:
 
 ```bash
