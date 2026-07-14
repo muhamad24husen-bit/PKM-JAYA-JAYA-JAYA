@@ -76,8 +76,8 @@ function DeviceStrip({ current, connectionStatus }) {
   );
 }
 
-function Rso2TrendChart({ history, rollup, critical }) {
-  const color = critical ? "#dc2626" : "#0f766e";
+function Rso2TrendChart({ history, rollup, alertStatus }) {
+  const color = statusOf(alertStatus).chart;
   const [windowKey, setWindowKey] = useState(DEFAULT_TREND_WINDOW);
   const series = useMemo(
     () => buildTrendSeries({ windowKey, history, rollup }),
@@ -141,8 +141,8 @@ function Rso2TrendChart({ history, rollup, critical }) {
                 minTickGap={20}
               />
               <YAxis
-                domain={[0, 100]}
-                ticks={[0, 25, 50, 75, 100]}
+                domain={[10, 100]}
+                ticks={[10, 20, 30, 40, 50, 60, 70, 80, 90, 100]}
                 width={40}
                 axisLine={false}
                 tickLine={false}
@@ -273,14 +273,14 @@ function DeviceInfoPanel({ connectionStatus }) {
 export function DashboardView({ current, connectionStatus, insight, history = [], rollup = null }) {
   const critical = current.alertStatus === "HIPOKSIA";
   const meta = statusOf(current.alertStatus);
-  const rso2Color = critical ? "#dc2626" : "#0f766e";
+  const rso2Color = meta.chart;
 
   return (
     <section className="space-y-5">
       <DeviceStrip current={current} connectionStatus={connectionStatus} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <StatCard label="RSO2 Ginjal" icon={TriangleAlert} iconColor={critical ? "#dc2626" : "#6b7280"} danger={critical}>
+        <StatCard label="RSO2 Ginjal" icon={TriangleAlert} iconColor={rso2Color} danger={critical}>
           <p className="text-5xl font-semibold leading-none" style={{ color: rso2Color }}>
             {formatRso2(current.rso2)}
             <span className="ml-1 align-top text-base font-medium text-nirwana-muted">%</span>
@@ -294,7 +294,7 @@ export function DashboardView({ current, connectionStatus, insight, history = []
 
       <AiInsightCard insight={insight} />
 
-      <Rso2TrendChart history={history} rollup={rollup} critical={critical} />
+      <Rso2TrendChart history={history} rollup={rollup} alertStatus={current.alertStatus} />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
         <AlertStatusPanel status={current.alertStatus} />
