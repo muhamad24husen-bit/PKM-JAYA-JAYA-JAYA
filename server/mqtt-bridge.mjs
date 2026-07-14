@@ -13,6 +13,7 @@ import {
   parseTelemetryMessage,
 } from "../lib/telemetry.shared.mjs";
 import { createRollupStore } from "./rollup.mjs";
+import { createSimulatorRunner } from "./simulator.mjs";
 
 dotenv.config();
 
@@ -30,6 +31,15 @@ const rollupFile = process.env.ROLLUP_FILE
   : path.join(__dirname, "data", "rollup.json");
 
 const rollup = createRollupStore({ filePath: rollupFile });
+
+// Publish lewat client MQTT bridge → broker mengirim balik ke subscription,
+// sehingga simulasi menempuh jalur data produksi yang sama dengan perangkat asli.
+const simulator = createSimulatorRunner({
+  publish: (payload) => {
+    mqttClient.publish(topic, JSON.stringify(payload));
+  },
+  onUpdate: () => broadcastStatus(),
+});
 
 const nvidiaApiKey = process.env.NVIDIA_API_KEY || "";
 const nvidiaModel = process.env.NVIDIA_MODEL || "meta/llama-3.3-70b-instruct";
@@ -116,6 +126,7 @@ function statusPayload() {
     topic,
     sseClients: sseClients.size,
     historyCount: history.length,
+    simulation: simulator.status(),
     lastError,
     updatedAt: new Date().toISOString(),
   };
@@ -158,6 +169,30 @@ app.get("/api/telemetry/history", (_req, res) => {
 
 app.get("/api/telemetry/rollup", (_req, res) => {
   res.json(rollup.snapshot());
+});
+
+app.post("/api/simulate/start", (req, res) => {
+  const backfillHours = Number(req.body?.backfillHours);
+  if (!Number.isFinite(backfillHours) || backfillHours < 0 || backfillHours > 72) {
+    res.status(400).json({ error: "backfillHours harus angka 0-72." });
+    return;
+  }
+  if (simulator.status().running) {
+    res.status(409).json({ error: "Simulasi sudah berjalan." });
+    return;
+  }
+  if (brokerStatus !== "connected") {
+    res.status(409).json({ error: "Broker MQTT tidak terhubung." });
+    return;
+  }
+  // Broadcast SSE status terjadi lewat onUpdate runner pada tiap transisi fase.
+  const simulation = simulator.start({ backfillHours });
+  res.status(202).json({ simulation });
+});
+
+app.post("/api/simulate/stop", (_req, res) => {
+  const simulation = simulator.stop();
+  res.json({ simulation });
 });
 
 app.get("/api/insight/latest", (_req, res) => {
@@ -346,6 +381,7 @@ const server = app.listen(port, () => {
 function shutdown() {
   flushHistory();
   rollup.flush();
+  simulator.stop();
   if (insightTimer) {
     clearInterval(insightTimer);
   }
