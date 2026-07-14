@@ -26,7 +26,7 @@ Dashboard monitoring realtime untuk **NIRWANA-AI** — purwarupa alat riset yang
 ## Fitur Utama
 
 - Koneksi realtime ke perangkat lewat **MQTT** (broker Mosquitto), diteruskan ke browser lewat **Server-Sent Events (SSE)**.
-- Dashboard ringkasan: nilai rSO₂ terkini, status peringatan (Normal / Waspada / Hipoksia), grafik rSO₂ dengan **dropdown jendela waktu** (3 Menit live / 1 Jam / 6 Jam / 24 Jam / 72 Jam) plus garis **baseline** dari 10 menit pertama sesi.
+- Dashboard ringkasan: nilai rSO₂ terkini, status peringatan (Normal / Waspada / Darurat), grafik rSO₂ dengan **dropdown jendela waktu** (3 Menit live / 1 Jam / 6 Jam / 24 Jam / 72 Jam) plus garis **baseline** dari 10 menit pertama sesi.
 - Halaman **Monitoring Realtime**: grafik RED/IR raw signal dan rSO₂ secara langsung.
 - **Riwayat Data**: tabel (desktop) / kartu (mobile), tersimpan di `localStorage` dan cache backend, bisa **Export PDF** dan **Clear History**.
 - **AI Insight**: interpretasi singkat berbahasa Indonesia dari kondisi terkini, dihasilkan otomatis oleh LLM lewat **NVIDIA NIM API**.
@@ -152,7 +152,7 @@ npm run simulate -- --interval 500  # live 2 Hz
 | `--backfill <jam>` | `26` | Isi riwayat N jam ke belakang (timestamp eksplisit) — mengisi jendela grafik 6/24/72 jam + baseline. `0` = lewati. |
 | `--interval <ms>` | `1000` | Periode publish live (minimum 100 ms). |
 
-Pola datanya realistis: gelombang halus di kisaran 62–74%, satu episode hipoksia terjadwal di tengah backfill, dan dip acak sesekali ke rentang Waspada/Hipoksia saat live. Broker/topic mengikuti `MQTT_URL` / `MQTT_TOPIC` di `.env`. Hentikan dengan `Ctrl+C`. Untuk mengosongkan kembali dashboard, pakai tombol **Clear History** di halaman Riwayat Data.
+Pola datanya realistis: gelombang halus di kisaran 62–74%, satu episode hipoksia terjadwal di tengah backfill, dan dip acak sesekali ke rentang Waspada/Darurat saat live. Broker/topic mengikuti `MQTT_URL` / `MQTT_TOPIC` di `.env`. Hentikan dengan `Ctrl+C`. Untuk mengosongkan kembali dashboard, pakai tombol **Clear History** di halaman Riwayat Data.
 
 Simulator juga bisa dijalankan **dari UI**: buka **Pengaturan → Simulasi Data**, pilih isi riwayat (Tanpa / 2 jam / 26 jam), lalu klik **Mulai Simulasi**. Selama simulasi aktif, badge **SIMULASI** tampil di header semua halaman sebagai penanda bahwa data yang mengalir bersifat sintetis. Bila perangkat asli ikut publish pada saat yang sama, datanya akan berbaur.
 

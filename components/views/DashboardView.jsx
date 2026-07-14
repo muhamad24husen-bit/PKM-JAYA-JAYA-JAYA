@@ -213,7 +213,7 @@ function AlertStatusPanel({ status }) {
   const items = [
     ["NORMAL", "Normal", CheckCircle2],
     ["WASPADA", "Waspada", TriangleAlert],
-    ["HIPOKSIA", "Hipoksia", ShieldAlert],
+    ["HIPOKSIA", "Darurat", ShieldAlert],
   ];
 
   return (

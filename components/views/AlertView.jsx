@@ -23,7 +23,7 @@ export function AlertView({ history, current }) {
           danger
           pulse={current.alertStatus !== "NORMAL"}
         />
-        <SummaryCard title="Total Hipoksia" value={String(hipoksiaCount)} icon={Activity} tone="text-nirwana-hipoksia" />
+        <SummaryCard title="Total Darurat" value={String(hipoksiaCount)} icon={Activity} tone="text-nirwana-hipoksia" />
         <SummaryCard title="Total Waspada" value={String(waspadaCount)} icon={TriangleAlert} tone="text-nirwana-waspada" />
         <SummaryCard title="Total Normal" value={String(normalCount)} icon={CheckCircle2} tone="text-nirwana-normal" />
       </div>
