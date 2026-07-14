@@ -138,7 +138,23 @@ Backend menerima JSON di topic `MQTT_TOPIC` dengan field (nama field fleksibel, 
 
 ## Menguji Tanpa Alat Fisik
 
-Proyek ini **tidak** punya mode simulasi bawaan (dihapus supaya versi yang di-clone selalu jalan dari data MQTT asli). Untuk menguji tanpa ESP32 fisik terhubung, publish payload manual ke broker, misalnya dengan `mosquitto_pub`:
+Gunakan **simulator bawaan** — script opt-in yang mem-publish payload MQTT **asli** ke broker (aplikasi tetap berjalan murni dari data MQTT, bukan mode simulasi internal):
+
+```bash
+npm run simulate                     # backfill 26 jam + live 1 Hz
+npm run simulate -- --backfill 2    # backfill 2 jam saja + live
+npm run simulate -- --backfill 0    # langsung live tanpa backfill
+npm run simulate -- --interval 500  # live 2 Hz
+```
+
+| Flag | Default | Keterangan |
+| ---- | ------- | ---------- |
+| `--backfill <jam>` | `26` | Isi riwayat N jam ke belakang (timestamp eksplisit) — mengisi jendela grafik 6/24/72 jam + baseline. `0` = lewati. |
+| `--interval <ms>` | `1000` | Periode publish live (minimum 100 ms). |
+
+Pola datanya realistis: gelombang halus di kisaran 62–74%, satu episode hipoksia terjadwal di tengah backfill, dan dip acak sesekali ke rentang Waspada/Hipoksia saat live. Broker/topic mengikuti `MQTT_URL` / `MQTT_TOPIC` di `.env`. Hentikan dengan `Ctrl+C`. Untuk mengosongkan kembali dashboard, pakai tombol **Clear History** di halaman Riwayat Data.
+
+Alternatif manual — publish payload sendiri dengan `mosquitto_pub`:
 
 ```bash
 mosquitto_pub -h localhost -t nirwana/telemetry -m '{"deviceId":"nirwana_001","rso2":68.4,"red":52420,"ir":68360,"motion":"STABIL","sqi":96.2,"battery":91,"alertStatus":"NORMAL"}'
