@@ -5,12 +5,12 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
-  ShieldAlert,
   SlidersHorizontal,
   TriangleAlert,
   UserRound,
 } from "lucide-react";
 import { profile } from "@/lib/profile";
+import { Logo } from "@/components/ui/Logo";
 
 export function Sidebar({ activeView, onNavigate, collapsed = false, onToggleCollapse }) {
   const navItems = [
@@ -47,13 +47,7 @@ export function Sidebar({ activeView, onNavigate, collapsed = false, onToggleCol
         }`}
       >
         <div className={collapsed ? "flex items-center gap-3" : "flex flex-col items-center"}>
-          <div
-            className={`grid place-items-center bg-nirwana-accent text-white ${
-              collapsed ? "h-11 w-11 rounded-lg" : "h-16 w-16 rounded-full"
-            }`}
-          >
-            {collapsed ? <LayoutDashboard size={22} strokeWidth={2.2} /> : <ShieldAlert size={26} strokeWidth={2.2} />}
-          </div>
+          <Logo size={collapsed ? 42 : 64} />
           {collapsed ? null : (
             <div className="mt-4 text-center">
               <h1 className="text-lg font-semibold text-nirwana-text">NIRWANA-AI</h1>

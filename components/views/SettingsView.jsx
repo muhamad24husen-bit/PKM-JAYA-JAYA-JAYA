@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { LogOut } from "lucide-react";
 import { DEFAULT_DEVICE_ID, HISTORY_LIMIT } from "@/lib/telemetry";
 import { shortDateTime } from "@/lib/format";
 import { profile } from "@/lib/profile";
@@ -125,6 +127,41 @@ export function SettingsView({ topic, telemetryApiUrl, simulation = null, onSimu
       </Card>
 
       <SimulationCard simulation={simulation} onSimulateStart={onSimulateStart} onSimulateStop={onSimulateStop} />
+
+      <AccountCard />
     </section>
+  );
+}
+
+function AccountCard() {
+  const router = useRouter();
+  const [sibuk, setSibuk] = useState(false);
+
+  async function keluar() {
+    setSibuk(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      // Cookie tetap dibuang oleh middleware pada permintaan berikutnya.
+    }
+    router.replace("/login");
+    router.refresh();
+  }
+
+  return (
+    <Card title="Akun">
+      <p className="text-sm text-nirwana-muted">
+        Sesi berakhir otomatis setelah 12 jam. Keluar setiap kali meninggalkan perangkat bersama.
+      </p>
+      <button
+        type="button"
+        onClick={keluar}
+        disabled={sibuk}
+        className="mt-4 flex items-center gap-2 rounded-lg border border-nirwana-hipoksia/40 px-4 py-2 text-sm font-semibold text-nirwana-hipoksia transition hover:bg-nirwana-hipoksiaSoft disabled:opacity-50"
+      >
+        <LogOut size={15} />
+        {sibuk ? "Keluar…" : "Keluar"}
+      </button>
+    </Card>
   );
 }

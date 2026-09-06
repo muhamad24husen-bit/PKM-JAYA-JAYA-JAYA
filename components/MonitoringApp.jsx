@@ -1,0 +1,437 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import { exportHistoryToPDF } from "@/lib/pdf";
+import {
+  DEFAULT_DEVICE_ID,
+  DEFAULT_TELEMETRY_API,
+  DEFAULT_TOPIC,
+  HISTORY_LIMIT,
+  HISTORY_STORAGE_KEY,
+} from "@/lib/telemetry";
+import { mergeRollupSample } from "@/lib/trend";
+import { Sidebar } from "@/components/Sidebar";
+import { MobileNavigation } from "@/components/MobileNavigation";
+import { TopAppBar } from "@/components/TopAppBar";
+import { DashboardView } from "@/components/views/DashboardView";
+import { RealtimeView } from "@/components/views/RealtimeView";
+import { HistoryPanel } from "@/components/views/HistoryView";
+import { AlertView } from "@/components/views/AlertView";
+import { DeviceView } from "@/components/views/DeviceView";
+import { SettingsView } from "@/components/views/SettingsView";
+
+const SIDEBAR_STORAGE_KEY = "nirwana-ai-sidebar-collapsed";
+
+const dashboardFallback = {
+  id: "reference-preview",
+  timestamp: "2026-06-14T09:20:00+07:00",
+  deviceId: DEFAULT_DEVICE_ID,
+  rso2: 42,
+  red: 52420,
+  ir: 68360,
+  ratio: 0.767,
+  motion: "Stabil",
+  sqi: 92,
+  battery: 87,
+  alertStatus: "HIPOKSIA",
+};
+
+const realtimeFallback = {
+  ...dashboardFallback,
+  id: "realtime-reference-preview",
+  rso2: 68,
+  red: 52420,
+  ir: 68360,
+  motion: "Low",
+  sqi: 98.2,
+  alertStatus: "NORMAL",
+};
+
+function buildApiUrl(baseUrl, path) {
+  return new URL(path, baseUrl).toString();
+}
+
+function mergeHistoryItems(currentHistory, incomingItems) {
+  const merged = [];
+  const seen = new Set();
+
+  for (const item of [...incomingItems, ...currentHistory]) {
+    if (!item?.id || seen.has(item.id)) continue;
+    seen.add(item.id);
+    merged.push(item);
+    if (merged.length >= HISTORY_LIMIT) break;
+  }
+
+  return merged;
+}
+
+export function MonitoringApp({ device }) {
+  // Riwayat disimpan terpisah per perangkat supaya data antar-bed tidak tercampur
+  // ketika petugas berpindah-pindah kartu.
+  const storageKey = `${HISTORY_STORAGE_KEY}:${device.id}`;
+  // Backend masih menyiarkan seluruh perangkat dalam satu stream, jadi
+  // penyaringan dilakukan di sisi klien sampai endpoint per-deviceId tersedia.
+  const belongsToDevice = (item) => (item?.deviceId || DEFAULT_DEVICE_ID) === device.id;
+  const [telemetryApiUrl] = useState(() => (process.env.NEXT_PUBLIC_TELEMETRY_API || DEFAULT_TELEMETRY_API).replace(/\/+$/, ""));
+  const [topic] = useState(process.env.NEXT_PUBLIC_MQTT_TOPIC || DEFAULT_TOPIC);
+  const [connectionStatus, setConnectionStatus] = useState("disconnected");
+  const [history, setHistory] = useState([]);
+  const [insight, setInsight] = useState(null);
+  const [rollup, setRollup] = useState(null);
+  const [simulation, setSimulation] = useState(null);
+  const [lastError, setLastError] = useState("");
+  const [historyMessage, setHistoryMessage] = useState("");
+  const [activeView, setActiveView] = useState("realtime");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    let timeoutId;
+    const stored = window.localStorage.getItem(storageKey);
+    if (!stored) return undefined;
+
+    try {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        timeoutId = window.setTimeout(() => {
+          setHistory(parsed.slice(0, HISTORY_LIMIT));
+        }, 0);
+      }
+    } catch {
+      window.localStorage.removeItem(storageKey);
+    }
+
+    return () => {
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [storageKey]);
+
+  useEffect(() => {
+    window.localStorage.setItem(storageKey, JSON.stringify(history.slice(0, HISTORY_LIMIT)));
+  }, [history, storageKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadBackendHistory() {
+      try {
+        const response = await fetch(buildApiUrl(telemetryApiUrl, "/api/telemetry/history"), {
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          throw new Error("Backend telemetry belum siap.");
+        }
+
+        const backendHistory = await response.json();
+        if (!cancelled && Array.isArray(backendHistory)) {
+          setHistory((currentHistory) => mergeHistoryItems(currentHistory, backendHistory.filter(belongsToDevice)));
+        }
+      } catch {
+        if (!cancelled) {
+          setLastError("Backend telemetry belum tersedia. Jalankan npm run backend.");
+        }
+      }
+    }
+
+    loadBackendHistory();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [telemetryApiUrl, device.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLatestInsight() {
+      try {
+        const response = await fetch(buildApiUrl(telemetryApiUrl, "/api/insight/latest"), {
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+
+        const latestInsight = await response.json();
+        if (!cancelled && latestInsight) {
+          setInsight(latestInsight);
+        }
+      } catch {
+        // Backend belum siap; AiInsightCard menampilkan status menunggu secara default.
+      }
+    }
+
+    loadLatestInsight();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [telemetryApiUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRollup() {
+      try {
+        const response = await fetch(buildApiUrl(telemetryApiUrl, "/api/telemetry/rollup"), {
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+
+        const payload = await response.json();
+        if (!cancelled && payload && Array.isArray(payload.buckets)) {
+          setRollup({ sessionStartedAt: payload.sessionStartedAt || null, buckets: payload.buckets });
+        }
+      } catch {
+        // Rollup belum tersedia; jendela panjang menampilkan keadaan kosong.
+      }
+    }
+
+    loadRollup();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [telemetryApiUrl]);
+
+  useEffect(() => {
+    const stream = new EventSource(buildApiUrl(telemetryApiUrl, "/api/telemetry/stream"));
+
+    stream.addEventListener("status", (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        setConnectionStatus(payload.brokerStatus || "disconnected");
+        setLastError(payload.lastError || "");
+        setSimulation(payload.simulation ?? null);
+      } catch {
+        setConnectionStatus("error");
+        setLastError("Status backend telemetry tidak valid.");
+      }
+    });
+
+    stream.addEventListener("telemetry", (event) => {
+      try {
+        const item = JSON.parse(event.data);
+        if (!belongsToDevice(item)) return;
+
+        setHistory((currentHistory) => mergeHistoryItems(currentHistory, [item]));
+        setRollup((currentRollup) => mergeRollupSample(currentRollup, item));
+        setLastError("");
+      } catch {
+        setLastError("Data telemetry dari backend tidak valid dan diabaikan.");
+      }
+    });
+
+    stream.addEventListener("history-clear", () => {
+      setHistory([]);
+      setRollup({ sessionStartedAt: null, buckets: [] });
+      window.localStorage.removeItem(storageKey);
+    });
+
+    stream.addEventListener("insight", (event) => {
+      try {
+        setInsight(JSON.parse(event.data));
+      } catch {
+        // Abaikan payload insight yang tidak valid, pertahankan insight terakhir.
+      }
+    });
+
+    // Handler jika koneksi stream SSE terputus. Ini akan terjadi jika backend
+    // berhenti berjalan. Frontend akan menampilkan status error dan pesan
+    // yang menyarankan untuk menjalankan ulang backend.
+    stream.onerror = () => {
+      setConnectionStatus("error");
+      setLastError("Stream backend telemetry terputus. Jalankan npm run backend.");
+    };
+
+    return () => {
+      stream.close();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [telemetryApiUrl, device.id, storageKey]);
+
+  useEffect(() => {
+    if (window.localStorage.getItem(SIDEBAR_STORAGE_KEY) !== "true") return undefined;
+
+    const timeoutId = window.setTimeout(() => setSidebarCollapsed(true), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
+
+  const current = history[0];
+  const displayCurrent = current || dashboardFallback;
+  const chartData = useMemo(() => {
+    if (!history.length) {
+      return Array.from({ length: 30 }, (_, index) => ({
+        second: index,
+        rso2: 51 + Math.sin(index * 0.55) * (5 + index * 0.28),
+        redLevel: 50 + Math.sin(index * 0.62) * 18 + Math.cos(index * 0.21) * 6,
+        irLevel: 54 + Math.cos(index * 0.53) * 15 + Math.sin(index * 0.26) * 7,
+      }));
+    }
+
+    const ordered = history.slice().reverse();
+    const normalize = (value, values) => {
+      const numeric = values.filter(Number.isFinite);
+      if (!numeric.length || !Number.isFinite(value)) return null;
+      const min = Math.min(...numeric);
+      const max = Math.max(...numeric);
+      if (max === min) return 50;
+      return 15 + ((value - min) / (max - min)) * 70;
+    };
+    const redValues = ordered.map((item) => Number(item.red));
+    const irValues = ordered.map((item) => Number(item.ir));
+
+    return ordered.map((item, index) => ({
+      second: index,
+      rso2: Number(item.rso2),
+      redLevel: normalize(Number(item.red), redValues),
+      irLevel: normalize(Number(item.ir), irValues),
+    }));
+  }, [history]);
+
+  async function clearHistory() {
+    setHistory([]);
+    setHistoryMessage("Riwayat data telah dihapus.");
+    window.localStorage.removeItem(storageKey);
+
+    try {
+      await fetch(buildApiUrl(telemetryApiUrl, "/api/telemetry/history"), {
+        method: "DELETE",
+      });
+    } catch {
+      setLastError("Backend tidak dapat menghapus cache riwayat, tetapi riwayat lokal sudah dikosongkan.");
+    }
+  }
+
+  async function simulateStart(backfillHours) {
+    try {
+      const response = await fetch(buildApiUrl(telemetryApiUrl, "/api/simulate/start"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ backfillHours }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        return payload?.error || "Backend menolak permintaan simulasi.";
+      }
+      return "";
+    } catch {
+      return "Backend tidak dapat dihubungi.";
+    }
+  }
+
+  async function simulateStop() {
+    try {
+      const response = await fetch(buildApiUrl(telemetryApiUrl, "/api/simulate/stop"), {
+        method: "POST",
+      });
+      if (!response.ok) {
+        return "Backend menolak permintaan berhenti.";
+      }
+      return "";
+    } catch {
+      return "Backend tidak dapat dihubungi.";
+    }
+  }
+
+  function handleExport() {
+    if (!history.length) {
+      setHistoryMessage("Data riwayat masih kosong");
+      return;
+    }
+
+    exportHistoryToPDF(history);
+    setHistoryMessage("PDF riwayat monitoring berhasil dibuat.");
+  }
+
+  const realtimeCurrent = current || realtimeFallback;
+
+  return (
+    <main className="min-h-screen bg-nirwana-background text-nirwana-text">
+      <Sidebar
+        activeView={activeView}
+        onNavigate={setActiveView}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((collapsed) => !collapsed)}
+      />
+
+      <div
+        className={`min-h-screen transition-[margin] duration-300 ease-in-out ${
+          sidebarCollapsed ? "lg:ml-[76px]" : "lg:ml-[260px]"
+        }`}
+      >
+        <MobileNavigation activeView={activeView} onNavigate={setActiveView} />
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-nirwana-border bg-nirwana-surface px-5 py-2.5 sm:px-8">
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-1.5 text-sm font-medium text-nirwana-muted transition hover:text-nirwana-accent"
+          >
+            <ArrowLeft size={15} />
+            Semua sensor
+          </Link>
+          <p className="text-xs text-nirwana-muted">
+            <span className="font-semibold text-nirwana-text">{device.bed}</span>
+            {" · "}
+            {device.patientName}
+            {" · "}
+            <span className="font-mono">{device.id}</span>
+          </p>
+        </div>
+
+        {activeView === "realtime" ? (
+          <RealtimeView
+            current={realtimeCurrent}
+            connectionStatus={connectionStatus}
+            chartData={chartData}
+            lastError={lastError}
+            topic={topic}
+            telemetryApiUrl={telemetryApiUrl}
+            simulation={simulation}
+          />
+        ) : (
+          <>
+            <TopAppBar current={displayCurrent} simulation={simulation} />
+            <div className="min-h-[calc(100vh-81px)] overflow-y-auto bg-nirwana-background px-5 py-6 sm:px-8">
+              <div className="mx-auto max-w-[1240px]">
+                {activeView === "history" ? (
+                  <HistoryPanel history={history} onExport={handleExport} onClear={clearHistory} message={historyMessage} />
+                ) : activeView === "alert" ? (
+                  <AlertView history={history} current={displayCurrent} />
+                ) : activeView === "device" ? (
+                  <DeviceView
+                    current={displayCurrent}
+                    connectionStatus={connectionStatus}
+                    lastError={lastError}
+                    topic={topic}
+                    telemetryApiUrl={telemetryApiUrl}
+                  />
+                ) : activeView === "settings" ? (
+                  <SettingsView
+                    topic={topic}
+                    telemetryApiUrl={telemetryApiUrl}
+                    simulation={simulation}
+                    onSimulateStart={simulateStart}
+                    onSimulateStop={simulateStop}
+                  />
+                ) : (
+                  <DashboardView
+                    current={displayCurrent}
+                    connectionStatus={connectionStatus}
+                    insight={insight}
+                    history={history}
+                    rollup={rollup}
+                  />
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </main>
+  );
+}

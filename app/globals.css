@@ -41,3 +41,106 @@ textarea {
 .scrollbar-thin::-webkit-scrollbar-track {
   background: rgba(15, 118, 110, 0.05);
 }
+
+/* ---------------------------------------------------------------------------
+   Animasi masuk halaman beranda.
+   Semua keyframe hanya menyentuh transform dan opacity supaya dikerjakan GPU
+   dan tidak memicu layout ulang. Tidak ada pustaka animasi yang ditambahkan.
+   --------------------------------------------------------------------------- */
+
+@keyframes nirwana-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes nirwana-blob-warm {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(46px, 30px);
+  }
+}
+
+@keyframes nirwana-blob-cool {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-38px, -24px);
+  }
+}
+
+/* Satu kata diganti bergiliran di dalam judul. */
+@keyframes nirwana-reel {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  4%,
+  28% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  /* 33% menutup satu giliran dari tiga kata. Frame 100% wajib ditulis; tanpanya
+     browser kembali ke nilai dasar dan seluruh kata tampil bertumpuk. */
+  33%,
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+.animate-fade-up {
+  animation: nirwana-fade-up 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-blob-warm {
+  animation: nirwana-blob-warm 14s ease-in-out infinite;
+}
+
+.animate-blob-cool {
+  animation: nirwana-blob-cool 17s ease-in-out infinite;
+}
+
+/* Tanpa animasi, hanya kata pertama yang tampil. Tanpa aturan ini ketiga kata
+   akan bertumpuk di satu sel grid. */
+.animate-reel-word {
+  opacity: 0;
+  animation: nirwana-reel 9s linear infinite;
+}
+
+.animate-reel-word:first-of-type {
+  opacity: 1;
+}
+
+/* Buka-saat-scroll. Tanpa .js-ready (JavaScript mati) isi tetap terlihat. */
+.reveal {
+  opacity: 1;
+}
+
+.js-ready .reveal {
+  opacity: 0;
+}
+
+/* opacity ditulis eksplisit supaya isi tetap terlihat seandainya animasi
+   dijatuhkan browser. Fill `both` yang menahan frame 0% selama jeda tunda. */
+.js-ready .reveal.is-visible {
+  opacity: 1;
+  animation: nirwana-fade-up 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Animasi beranda sengaja tetap berjalan walau sistem meminta hemat gerak —
+   diminta eksplisit agar terlihat saat demo di perangkat yang mematikan
+   animation effects Windows. Seluruh gerakan berdurasi pendek dan hanya
+   menyentuh transform/opacity. Untuk kembali menghormati setelan sistem,
+   hidupkan lagi blok @media (prefers-reduced-motion: reduce) di sini. */
+

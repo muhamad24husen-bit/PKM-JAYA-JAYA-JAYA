@@ -18,7 +18,7 @@ const inter = Inter({
 
 export const metadata = {
   title: "NIRWANA-AI Monitoring Dashboard",
-  description: "Dashboard monitoring realtime NIRWANA-AI berbasis MQTT.",
+  description: "Dashboard monitoring realtime NIRWANA-AI untuk tenaga kesehatan",
 };
 
 export default function RootLayout({ children }) {

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Ilustrasi perawat menggendong bayi">
+  <rect width="640" height="400" fill="#f0fdf4"/>
+  <circle cx="320" cy="200" r="150" fill="#ffffff" opacity=".75"/>
+  <circle cx="150" cy="90" r="40" fill="#ccfbf1" opacity=".8"/>
+  <circle cx="510" cy="320" r="54" fill="#ccfbf1" opacity=".6"/>
+  <g>
+    <path d="M228 372c0-70 40-118 92-118s92 48 92 118z" fill="#0f766e"/>
+    <path d="M296 232h48v30h-48z" fill="#f8d9c4"/>
+    <circle cx="320" cy="188" r="46" fill="#f8d9c4"/>
+    <path d="M274 184c0-30 20-50 46-50s46 20 46 50c-11-14-27-19-46-19s-35 5-46 19z" fill="#4a4038"/>
+    <circle cx="305" cy="190" r="4.5" fill="#3f3a36"/>
+    <circle cx="337" cy="190" r="4.5" fill="#3f3a36"/>
+    <path d="M310 208c6 7 18 7 24 0" stroke="#c98d72" stroke-width="4" stroke-linecap="round" fill="none"/>
+    <path d="M232 300c22-30 54-34 78-18" stroke="#0f766e" stroke-width="26" stroke-linecap="round" fill="none"/>
+    <path d="M408 300c-22-30-54-34-78-18" stroke="#0f766e" stroke-width="26" stroke-linecap="round" fill="none"/>
+  </g>
+  <g>
+    <ellipse cx="326" cy="296" rx="62" ry="30" fill="#ffffff"/>
+    <ellipse cx="326" cy="296" rx="62" ry="30" fill="#ccfbf1" opacity=".7"/>
+    <circle cx="286" cy="288" r="24" fill="#f8d9c4"/>
+    <path d="M266 282c4-14 21-20 34-15 7 3 11 9 12 16-11-5-24-6-37-1-4 2-7 2-9 0z" fill="#3f3a36"/>
+    <circle cx="280" cy="288" r="2.6" fill="#3f3a36"/>
+    <circle cx="293" cy="288" r="2.6" fill="#3f3a36"/>
+    <path d="M283 297c3 3 8 3 11 0" stroke="#c98d72" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    <rect x="272" y="268" width="30" height="10" rx="5" fill="#0f766e"/>
+  </g>
+  <g transform="translate(430 120)">
+    <rect x="0" y="0" width="112" height="82" rx="12" fill="#ffffff" stroke="#e4e7eb" stroke-width="3"/>
+    <polyline points="12,52 30,52 40,28 52,66 64,38 74,52 100,52" fill="none" stroke="#0f766e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <path d="M150 236c0-13 10-24 23-24 8 0 15 4 19 11 4-7 11-11 19-11 13 0 23 11 23 24 0 26-42 48-42 48s-42-22-42-48z" fill="#dc2626" opacity=".18"/>
+</svg>
